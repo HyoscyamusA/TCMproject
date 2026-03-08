@@ -1,0 +1,122 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container-fluid py-3 h-100 d-flex flex-column">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 style="color: #2c3e50; font-weight: bold;">🌌 图谱全景总览</h2>
+            <p class="text-muted mb-0">展示图谱中的连通网络，支持鼠标滚轮缩放与拖拽漫游。</p>
+        </div>
+
+        <div class="btn-group shadow-sm">
+            <a href="{{ url_for('graph_overview', limit=200) }}"
+               class="btn {% if current_limit != 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+               onclick="showLoading()">
+               ✨ 预览 200 条关系
+            </a>
+            <a href="{{ url_for('graph_overview', limit='all') }}"
+               class="btn {% if current_limit == 'all' %}btn-danger{% else %}btn-outline-danger{% endif %}"
+               onclick="return confirmLoadAll()">
+               🔥 加载全部图谱
+            </a>
+        </div>
+    </div>
+
+    <div id="loading-tip" class="alert alert-info text-center" style="display: none; border-radius: 8px;">
+        <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+        <strong>正在全力加载图谱数据，请耐心等待...</strong>
+    </div>
+
+    <div class="card shadow-sm border-0 flex-grow-1" style="border-radius: 12px;">
+        <div class="card-body p-2" style="position: relative;">
+            <div id="overview-graph" style="width: 100%; height: 100%; min-height: 700px;"></div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script>
+// 🌟 按钮点击交互：加载动画与危险警告
+function showLoading() {
+    document.getElementById('loading-tip').style.display = 'block';
+}
+
+function confirmLoadAll() {
+    const res = confirm("⚠️ 警告：如果您数据库中的节点和关系超过 2000 个，【加载全部图谱】可能会导致浏览器严重卡顿甚至无响应。确定要继续吗？");
+    if(res) {
+        showLoading();
+        return true;
+    }
+    return false;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const chartDom = document.getElementById('overview-graph');
+    const myChart = echarts.init(chartDom);
+
+    const rawData = {{ graph_data | safe }};
+
+    if (!rawData.nodes || rawData.nodes.length === 0) {
+        chartDom.innerHTML = '<div class="text-center mt-5 text-muted"><h4>暂无图谱数据</h4></div>';
+        return;
+    }
+
+    const option = {
+        tooltip: {
+            trigger: 'item',
+            formatter: function (params) {
+                if (params.dataType === 'node') {
+                    let html = `<div style="border-bottom:1px solid #ccc;padding-bottom:5px;margin-bottom:5px;">
+                                <strong>${params.data.name}</strong> (${params.data.category})
+                                </div>`;
+                    const attr = params.data.attributes;
+                    for (let key in attr) {
+                        if(key !== 'name') {
+                            html += `<div style="font-size: 12px; margin-top: 3px;">
+                                        <span style="color: #666;">${key}:</span> ${attr[key]}
+                                     </div>`;
+                        }
+                    }
+                    return html;
+                } else if (params.dataType === 'edge') {
+                    return `<strong>${params.data.name}</strong>`;
+                }
+            }
+        },
+        legend: {
+            top: '2%',
+            data: rawData.categories.map(a => a.name)
+        },
+        series: [{
+            type: 'graph',
+            layout: 'force',
+            data: rawData.nodes,
+            links: rawData.links,
+            categories: rawData.categories,
+            roam: true,
+            draggable: true,
+            label: { show: true, position: 'right', formatter: '{b}' },
+            edgeSymbol: ['circle', 'arrow'],
+            edgeSymbolSize: [4, 8],
+            edgeLabel: {
+                show: true,
+                fontSize: 10,
+                formatter: function (x) { return x.data.name; }
+            },
+            lineStyle: { color: '#bdc3c7', curveness: 0.1, width: 1.5 },
+            force: {
+                repulsion: 400,
+                edgeLength: 150,
+                gravity: 0.05
+            }
+        }]
+    };
+
+    myChart.setOption(option);
+
+    window.addEventListener('resize', function() {
+        myChart.resize();
+    });
+});
+</script>
+{% endblock %}

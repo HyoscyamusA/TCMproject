@@ -1,0 +1,294 @@
+{% extends "layout.html" %}
+{% block content %}
+<style>
+    /* 页面自定义样式 */
+    .stat-card {
+        border-radius: 12px;
+        transition: transform 0.2s;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    .feature-card {
+        border-radius: 12px;
+        transition: all 0.2s;
+        border: none;
+        background: #fff;
+    }
+    .feature-card:hover {
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    .category-list-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .category-list-item:last-child {
+        border-bottom: none;
+    }
+    .color-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+    }
+    .list-group-custom {
+        max-height: 260px;
+        overflow-y: auto;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        background: #fafafa;
+    }
+</style>
+
+<div class="container-fluid py-3">
+    <!-- 标题区域 -->
+    <div class="mb-4">
+        <h2 style="color: #2c3e50; font-weight: bold;">📊 系统概览与数据大屏</h2>
+        <p class="text-muted">基于知识图谱的全面统计与快捷功能入口</p>
+    </div>
+
+    <!-- 第一行：四大核心统计卡片 -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 text-center stat-card" style="background: linear-gradient(135deg, #e0f7fa, #b2ebf2);">
+                <div class="card-body py-4">
+                    <p class="text-muted mb-2 fw-bold">中药总数</p>
+                    <h2 class="mb-0" style="color: #00838f; font-weight: 900;">{{ total_herbs|default(0) }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 text-center stat-card" style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9);">
+                <div class="card-body py-4">
+                    <p class="text-muted mb-2 fw-bold">方剂总数</p>
+                    <h2 class="mb-0" style="color: #2e7d32; font-weight: 900;">{{ total_prescriptions|default(0) }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 text-center stat-card" style="background: linear-gradient(135deg, #fce4ec, #f8bbd0);">
+                <div class="card-body py-4">
+                    <p class="text-muted mb-2 fw-bold">疾病/症状总数</p>
+                    <h2 class="mb-0" style="color: #c2185b; font-weight: 900;">{{ total_diseases|default(0) }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 text-center stat-card" style="background: linear-gradient(135deg, #fff3e0, #ffe0b2);">
+                <div class="card-body py-4">
+                    <p class="text-muted mb-2 fw-bold">知识网络关系数</p>
+                    <h2 class="mb-0" style="color: #ef6c00; font-weight: 900;">{{ total_relations|default(0) }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 第二行：用户/典籍统计卡片（风格统一） -->
+    <div class="row g-4 mb-5">
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 text-center stat-card" style="background: linear-gradient(135deg, #d1c4e9, #b39ddb);">
+                <div class="card-body py-4">
+                    <p class="text-muted mb-2 fw-bold">用户总数</p>
+                    <h2 class="mb-0" style="color: #512da8; font-weight: 900;">{{ user_count|default(0) }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 text-center stat-card" style="background: linear-gradient(135deg, #ffccbc, #ffab91);">
+                <div class="card-body py-4">
+                    <p class="text-muted mb-2 fw-bold">典籍总数</p>
+                    <h2 class="mb-0" style="color: #d84315; font-weight: 900;">{{ total_sources|default(0) }}</h2>
+                </div>
+            </div>
+        </div>
+        <!-- 预留两个空位保持布局整齐（可根据需要添加其他统计） -->
+        <div class="col-md-3"></div>
+        <div class="col-md-3"></div>
+    </div>
+
+    <!-- 核心功能卡片（三个） -->
+    <h4 class="mb-3" style="color: #2c3e50;">🚀 核心功能</h4>
+    <div class="row g-4 mb-5">
+        <div class="col-md-3">
+            <div class="card h-100 feature-card shadow-sm">
+                <div class="card-body p-4 d-flex flex-column">
+                    <h5 class="card-title text-primary mb-2">💬 症状辨证问答</h5>
+                    <p class="card-text text-muted flex-grow-1 small">输入临床症状，智能匹配相关疾病与对症方剂。</p>
+                    <a href="{{ url_for('answer') }}" class="btn btn-outline-primary w-100 mt-2">进入问答系统</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 feature-card shadow-sm">
+                <div class="card-body p-4 d-flex flex-column">
+                    <h5 class="card-title text-success mb-2">🧠 方剂对比推理</h5>
+                    <p class="card-text text-muted flex-grow-1 small">探索方剂组成，或输入多个方剂对比异同。</p>
+                    <a href="{{ url_for('inference') }}" class="btn btn-outline-success w-100 mt-2">开始方剂推理</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 feature-card shadow-sm">
+                <div class="card-body p-4 d-flex flex-column">
+                    <h5 class="card-title text-info mb-2">🌿 药材反向寻方</h5>
+                    <p class="card-text text-muted flex-grow-1 small">输入单味药材，反查包含该药材的所有经典方剂。</p>
+                    <a href="{{ url_for('herb_search') }}" class="btn btn-outline-info w-100 mt-2">进入药材溯源</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+           <div class="card h-100 feature-card shadow-sm">
+                <div class="card-body p-4 d-flex flex-column">
+                    <h5 class="card-title text-primary mb-2">🤖 AI 智能问答</h5>
+                    <p class="card-text text-muted flex-grow-1 small">结合本地大模型与图谱数据，提供专业的中医深度解答。</p>
+                    <a href="{{ url_for('ai_chat') }}" class="btn btn-outline-primary w-100 mt-2">进入开始对话</a>
+                </div>
+                </div>
+        </div>
+    </div>
+
+    <!-- 数据统计分析区域（两个图表，右侧饼图配合详细列表） -->
+    <h4 class="mb-3">📈 数据统计分析</h4>
+    <div class="row">
+        <!-- 左侧：典籍收录方剂排名（条形图） -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-white fw-bold">📚 典籍收录方剂排名</div>
+                <div class="card-body">
+                    <div id="sourceChart" style="height: 300px;"></div>
+                </div>
+            </div>
+        </div>
+        <!-- 右侧：方剂类型统计（饼图 + 详细列表） -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-white fw-bold">🏷️ 方剂类型统计</div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-7">
+                            <div id="categoryChart" style="height: 250px;"></div>
+                        </div>
+                        <div class="col-5">
+                            <div class="list-group-custom">
+                                {% if category_ranking %}
+                                    {% for item in category_ranking %}
+                                    <div class="category-list-item">
+                                        <span>
+                                            <span class="color-dot" style="background-color: {{ ['#5470c6', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc'] | random }};"></span>
+                                            {{ item.name }}
+                                        </span>
+                                        <span class="badge bg-secondary rounded-pill">{{ item.value }}</span>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <p class="text-muted p-2">暂无数据</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增快捷入口卡片（词云分析、图谱全景、数据看板、历史记录） -->
+    <h4 class="mb-3 mt-4">🔍 更多功能探索</h4>
+    <div class="row g-4">
+        <div class="col-md-3">
+            <div class="card h-100 feature-card shadow-sm">
+                <div class="card-body p-4 text-center">
+                    <h5 class="card-title text-secondary">☁️ 功效词云分析</h5>
+                    <p class="card-text text-muted small">可视化展示中药功效分布</p>
+                    <a href="{{ url_for('wordcloud') }}" class="btn btn-outline-secondary w-100">查看词云</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 feature-card shadow-sm">
+                <div class="card-body p-4 text-center">
+                    <h5 class="card-title text-info">🌌 图谱全景总览</h5>
+                    <p class="card-text text-muted small">浏览完整的知识图谱网络</p>
+                    <a href="{{ url_for('graph_overview') }}" class="btn btn-outline-info w-100">探索图谱</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 feature-card shadow-sm">
+                <div class="card-body p-4 text-center">
+                    <h5 class="card-title text-warning">📊 数据统计看板</h5>
+                    <p class="card-text text-muted small">深入的数据交叉分析</p>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-warning w-100">进入看板</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 feature-card shadow-sm">
+                <div class="card-body p-4 text-center">
+                    <h5 class="card-title text-danger">📜 检索历史记录</h5>
+                    <p class="card-text text-muted small">查看您的查询历史</p>
+                    <a href="{{ url_for('history_page') }}" class="btn btn-outline-danger w-100">查看历史</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ECharts 脚本 -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script>
+    (function() {
+        // 典籍排名数据
+        const sourceData = {{ source_ranking|tojson }};
+        // 类型数据
+        const categoryData = {{ category_ranking|tojson }};
+
+        // 条形图
+        const sourceChart = echarts.init(document.getElementById('sourceChart'));
+        sourceChart.setOption({
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+            grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+            xAxis: { type: 'value', name: '方剂数量' },
+            yAxis: { type: 'category', data: sourceData.map(d => d.name), axisLabel: { fontSize: 12 } },
+            series: [{
+                data: sourceData.map(d => d.value),
+                type: 'bar',
+                name: '方剂数',
+                itemStyle: { color: '#5470c6' },
+                label: { show: true, position: 'right', fontSize: 11 }
+            }]
+        });
+
+        // 饼图（隐藏图例，使用外部列表展示）
+        const categoryChart = echarts.init(document.getElementById('categoryChart'));
+        categoryChart.setOption({
+            tooltip: { trigger: 'item' },
+            legend: { show: false },
+            series: [{
+                type: 'pie',
+                radius: ['40%', '70%'],
+                center: ['50%', '50%'],
+                data: categoryData,
+                label: {
+                    show: true,
+                    position: 'outside',
+                    formatter: '{b} : {c}',
+                    fontSize: 11
+                },
+                emphasis: { scale: true }
+            }]
+        });
+
+        // 窗口大小改变时自适应
+        window.addEventListener('resize', () => {
+            sourceChart.resize();
+            categoryChart.resize();
+        });
+    })();
+</script>
+{% endblock %}

@@ -1,0 +1,148 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="mb-4">
+        <h2 style="color: #2c3e50; font-weight: bold;">📊 系统概览与数据大屏</h2>
+        <p class="text-muted">基于知识图谱的全面统计与快捷功能入口</p>
+    </div>
+
+    <div class="row g-4 mb-5">
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 text-center" style="border-radius: 12px; background: linear-gradient(135deg, #e0f7fa, #b2ebf2);">
+                <div class="card-body py-4">
+                    <p class="text-muted mb-2 fw-bold">中药总数</p>
+                    <h2 class="mb-0" style="color: #00838f; font-weight: 900;">{{ total_herbs|default(0) }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 text-center" style="border-radius: 12px; background: linear-gradient(135deg, #e8f5e9, #c8e6c9);">
+                <div class="card-body py-4">
+                    <p class="text-muted mb-2 fw-bold">方剂总数</p>
+                    <h2 class="mb-0" style="color: #2e7d32; font-weight: 900;">{{ total_prescriptions|default(0) }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 text-center" style="border-radius: 12px; background: linear-gradient(135deg, #fce4ec, #f8bbd0);">
+                <div class="card-body py-4">
+                    <p class="text-muted mb-2 fw-bold">疾病/症状总数</p>
+                    <h2 class="mb-0" style="color: #c2185b; font-weight: 900;">{{ total_diseases|default(0) }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 text-center" style="border-radius: 12px; background: linear-gradient(135deg, #fff3e0, #ffe0b2);">
+                <div class="card-body py-4">
+                    <p class="text-muted mb-2 fw-bold">知识网络关系数</p>
+                    <h2 class="mb-0" style="color: #ef6c00; font-weight: 900;">{{ total_relations|default(0) }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h4 class="mb-3" style="color: #2c3e50;">🚀 核心功能</h4>
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0" style="border-radius: 12px;">
+                <div class="card-body p-4 d-flex flex-column">
+                    <h5 class="card-title text-primary mb-2">💬 症状辨证问答</h5>
+                    <p class="card-text text-muted flex-grow-1 small">输入临床症状，智能匹配相关疾病与对症方剂。</p>
+                    <a href="{{ url_for('answer') }}" class="btn btn-outline-primary w-100 mt-2">进入问答系统</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0" style="border-radius: 12px;">
+                <div class="card-body p-4 d-flex flex-column">
+                    <h5 class="card-title text-success mb-2">🧠 方剂对比推理</h5>
+                    <p class="card-text text-muted flex-grow-1 small">探索方剂组成，或输入多个方剂对比异同。</p>
+                    <a href="{{ url_for('inference') }}" class="btn btn-outline-success w-100 mt-2">开始方剂推理</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0" style="border-radius: 12px;">
+                <div class="card-body p-4 d-flex flex-column">
+                    <h5 class="card-title text-info mb-2">🌿 药材反向寻方</h5>
+                    <p class="card-text text-muted flex-grow-1 small">输入单味药材，反查包含该药材的所有经典方剂。</p>
+                    <a href="{{ url_for('herb_search') }}" class="btn btn-outline-info w-100 mt-2">进入药材溯源</a>
+                </div>
+            </div>
+        </div>
+        <h4 class="mt-5 mb-3">📈 数据统计分析</h4>
+<div class="row">
+    {% if user_count is not none %}
+    <div class="col-md-3 mb-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <h5 class="card-title">用户总数</h5>
+                <p class="display-4">{{ user_count }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    <div class="col-md-3 mb-3">
+        <div class="card text-white bg-secondary">
+            <div class="card-body">
+                <h5 class="card-title">典籍总数</h5>
+                <p class="display-4">{{ total_sources }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">📚 典籍收录方剂排名</div>
+            <div class="card-body">
+                <div id="sourceChart" style="height: 300px;"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">🏷️ 方剂类型统计</div>
+            <div class="card-body">
+                <div id="categoryChart" style="height: 300px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script>
+    const sourceData = {{ source_ranking|tojson }};
+    const categoryData = {{ category_ranking|tojson }};
+
+    const sourceChart = echarts.init(document.getElementById('sourceChart'));
+    sourceChart.setOption({
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        xAxis: { type: 'value' },
+        yAxis: { type: 'category', data: sourceData.map(d => d.name) },
+        series: [{
+            data: sourceData.map(d => d.value),
+            type: 'bar',
+            name: '方剂数'
+        }]
+    });
+
+    const categoryChart = echarts.init(document.getElementById('categoryChart'));
+    categoryChart.setOption({
+        tooltip: { trigger: 'item' },
+        legend: { orient: 'vertical', left: 'left' },
+        series: [{
+            type: 'pie',
+            radius: '60%',
+            data: categoryData,
+            label: { show: true, formatter: '{b}: {c}' }
+        }]
+    });
+</script>
+
+
+{% endblock %}

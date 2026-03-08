@@ -1,0 +1,95 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container-fluid">
+    <h3>🧠 方剂推理模式</h3>
+    <p class="text-muted">查询方剂详细信息，或对比两个方剂。</p>
+    <style> .form-control::placeholder { color: #999 !important; opacity: 1; } </style>
+
+    <div class="card p-3 mb-4 shadow-sm">
+        <form method="POST" class="row g-3 align-items-center">
+            <div class="col-auto" style="flex-grow: 1;">
+                <input type="text" id="symptom" name="symptom" class="form-control" required
+                       placeholder="查单个：'葛根汤'  |  查对比：'葛根汤 麻黄汤' (空格分隔)"
+                       value="{{ request.form.get('symptom', '') }}">
+            </div>
+            <div class="col-auto"><button type="submit" class="btn btn-primary">🚀 推理</button></div>
+            <input type="hidden" name="mode" value="inference">
+        </form>
+    </div>
+
+    <div class="result">
+        {% if graph_data %}
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-light"><strong>推理图谱</strong></div>
+                        <div class="card-body p-0"><div id="kg-graph" style="width: 100%; height: 750px;"></div></div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card shadow-sm border-info mb-3">
+                        <div class="card-header bg-info text-white">💡 <strong>AI 药师分析</strong></div>
+                        <div class="card-body">
+                            <div id="model-reply">正在分析...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+            <script>
+                const rawData = {{ graph_data|tojson }};
+                const myChart = echarts.init(document.getElementById('kg-graph'));
+                const option = {
+                    title: { text: '推理结果', top: 10, left: 10 },
+                    // 🔥 Tooltip 样式同步修复 🔥
+                    tooltip: {
+                        trigger: 'item',
+                        enterable: true,
+                        confine: true,
+                        extraCssText: 'width: 380px; max-height: 400px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.2); white-space: normal; word-break: break-all;',
+                        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                        formatter: function (params) {
+                            const attr = params.data.attributes || {};
+                            const name = params.name;
+                            const typeStr = params.dataType === 'node' ? '实体' : '关系';
+                            let html = `<div style="border-bottom:1px solid #eee;padding-bottom:8px;margin-bottom:8px;font-size:14px;">
+                                            <strong>${name}</strong> <span style="color:#999;font-size:12px">(${typeStr})</span>
+                                        </div>`;
+                            html += '<table style="font-size:12px;width:100%;">';
+                            for (let key in attr) {
+                                if(key === 'name' || key === 'id') continue;
+                                html += `<tr>
+                                            <td style="color:#666;padding:3px 10px 3px 0;width:70px;vertical-align:top;">${key}:</td>
+                                            <td style="color:#333;line-height:1.4;"><b>${attr[key]}</b></td>
+                                         </tr>`;
+                            }
+                            html += '</table>';
+                            return html;
+                        }
+                    },
+                    legend: { top: 'bottom', data: rawData.categories.map(a => a.name) },
+                    series: [{
+                        type: 'graph',
+                        layout: 'force',
+                        data: rawData.nodes,
+                        links: rawData.links,
+                        categories: rawData.categories,
+                        roam: true,
+                        label: { show: true, position: 'right' },
+                        edgeLabel: { show: true, formatter: function(x){return x.data.name} },
+                        force: { repulsion: 250, edgeLength: 120 }
+                    }]
+                };
+                myChart.setOption(option);
+                window.addEventListener('resize', () => myChart.resize());
+
+                fetch("/suggest", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: new URLSearchParams({ symptom: '{{ search_keyword }}' })
+                }).then(r => r.text()).then(html => document.getElementById("model-reply").innerHTML = html);
+            </script>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

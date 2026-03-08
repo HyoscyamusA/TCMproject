@@ -1,0 +1,157 @@
+{% extends "layout.html" %}
+{% block content %}
+<h3>问答模式</h3>
+
+<form method="POST">
+    <label for="symptom">请输入你的症状：</label>
+    <input type="text" id="symptom" name="symptom" required
+           placeholder="如：头晕"
+           value="{{ request.form.get('symptom', '') }}">
+    <input type="submit" value="查询">
+    <a href="{{ url_for('answer') }}" style="margin-left: 10px;">
+        <input type="button" value="重置">
+    </a>
+    <input type="hidden" name="mode" value="answer">
+</form>
+
+<div class="result">
+    {% if graph_data %}
+        <h2>知识图谱查询结果：</h2>
+        <div style="margin-bottom:10px;">
+            <button id="toggle-edge-labels" class="btn btn-sm btn-outline-primary">切换关系文字显示</button>
+        </div>
+        <div id="kg-graph" style="width: 100%; height: 800px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); background: #fff;"></div>
+        <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+        <script>
+            const rawData = {{ graph_data|tojson }};
+            const chartDom = document.getElementById('kg-graph');
+            const myChart = echarts.init(chartDom);
+            let showEdgeLabel = true;
+
+            const option = {
+                tooltip: {
+                    formatter: function (params) {
+                        if (params.dataType === 'node') {
+                            const n = params.data || {};
+                            const name = n.name || '';
+                            const type = n.type ? ('类型：' + n.type) : '';
+                            return [name, type].filter(Boolean).join('<br/>');
+                        } else if (params.dataType === 'edge') {
+                            return params.data.name || '';
+                        }
+                    }
+                },
+                legend: [{
+                    data: rawData.categories.map(c => c.name)
+                }],
+                series: [{
+                    type: 'graph',
+                    layout: 'force',
+                    roam: true,
+                    draggable: true,
+                    data: rawData.nodes,
+                    links: rawData.links,
+                    categories: rawData.categories,
+                    label: {
+                        show: true,
+                        position: 'right',
+                        formatter: function (params) {
+                            const n = params.data || {};
+                            return n.name || '';
+                        }
+                    },
+                    edgeSymbol: ['circle', 'arrow'],
+                    edgeSymbolSize: [4, 10],
+                    edgeLabel: {
+                        show: showEdgeLabel,
+                        formatter: function (d) { return d.data.name || ''; },
+                        fontSize: 12
+                    },
+                    lineStyle: {
+                        color: '#aaa'
+                    },
+                    force: {
+                        repulsion: 200,
+                        edgeLength: 120,
+                        gravity: 0.05
+                    }
+                }]
+            };
+            myChart.setOption(option);
+
+            document.getElementById('toggle-edge-labels').addEventListener('click', function () {
+                showEdgeLabel = !showEdgeLabel;
+                myChart.setOption({
+                    series: [{
+                        edgeLabel: { show: showEdgeLabel }
+                    }]
+                });
+            });
+
+            window.addEventListener('resize', () => myChart.resize());
+        </script>
+
+        {% if table_data %}
+            <h2>具体中药配方：</h2>
+            <style>
+                table {
+                    border-collapse: collapse;
+                    width: 100%;
+                    margin: 20px 0;
+                }
+                th, td {
+                    border: 1px solid #ddd;
+                    padding: 8px;
+                    text-align: left;
+                }
+                th {
+                    background-color: #f2f2f2;
+                    font-weight: bold;
+                }
+                tr:nth-child(even) {
+                    background-color: #f9f9f9;
+                }
+                tr:hover {
+                    background-color: #f5f5f5;
+                }
+                .herb-function {
+                    max-width: 300px;
+                    word-wrap: break-word;
+                }
+            </style>
+            <table>
+                <tr>
+                    <th>药方名称</th>
+                    <th>中药</th>
+                    <th>剂量</th>
+                    <th>中药功能主治</th>
+                </tr>
+                {% set span_map = {} %}
+                {% for row in table_data %}
+                    {% set span_map = span_map.update({row['方名']: (span_map.get(row['方名'], 0) + 1)}) or span_map %}
+                {% endfor %}
+                {% set shown = {} %}
+                {% for row in table_data %}
+                <tr>
+                    {% if not shown.get(row['方名']) %}
+                        <td rowspan="{{ span_map[row['方名']] }}">{{ row['方名'] }}</td>
+                    {% endif %}
+                    <td>{{ row['中药'] }}</td>
+                    <td>{{ row['剂量'] }}</td>
+                    {% if not shown.get(row['方名']) %}
+                        <td rowspan="{{ span_map[row['方名']] }}" class="herb-function">{{ row['中药功能主治'] }}</td>
+                        {% set _ = shown.update({row['方名']: True}) %}
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </table>
+        {% endif %}
+    {% else %}
+        <p>暂无图谱展示</p>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+
+

@@ -1,0 +1,286 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<style>
+    /* 图谱容器，设为相对定位，方便内部绝对定位悬浮卡片 */
+    .graph-container {
+        position: relative;
+        width: 100%;
+        height: 800px;
+        margin-top: 20px;
+    }
+
+    /* 1. 节点详情悬浮卡片 */
+    #node-info-card {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 250px;
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: none; /* 默认隐藏 */
+        z-index: 1000;
+        font-size: 14px;
+    }
+    #node-info-card h4 {
+        margin-top: 0;
+        color: #333;
+        font-size: 16px;
+        border-bottom: 2px solid #87EBC1;
+        padding-bottom: 8px;
+        margin-bottom: 10px;
+    }
+    #node-info-card p {
+        margin: 5px 0;
+        color: #666;
+    }
+    #node-info-card strong {
+        color: #333;
+    }
+
+    /* 2. AI 回答框 */
+    .ai-box {
+        background: #f8fcfb;
+        border: 1px solid #87EBC1;
+        border-radius: 10px;
+        padding: 20px;
+        margin-top: 30px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .ai-title {
+        font-size: 18px;
+        font-weight: bold;
+        color: #2c3e50;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+    }
+    .ai-content {
+        line-height: 1.8;
+        color: #444;
+        white-space: pre-wrap; /* 保持换行 */
+    }
+
+    /* 药方功能表格样式微调 */
+    .herb-function {
+        max-width: 300px;
+        word-wrap: break-word;
+    }
+</style>
+
+<h3>问答模式</h3>
+
+<form method="POST">
+    <label for="symptom">请输入你的症状：</label>
+    <div style="display: flex; gap: 10px;">
+        <input type="text" id="symptom" name="symptom" required
+               class="form-control"
+               placeholder="如：头晕、失眠、胃痛"
+               value="{{ request.form.get('symptom', '') }}">
+        <input type="submit" value="查询" class="btn btn-primary">
+        <a href="{{ url_for('answer') }}">
+            <input type="button" value="重置" class="btn btn-outline-secondary">
+        </a>
+    </div>
+    <input type="hidden" name="mode" value="answer">
+</form>
+
+<div class="result">
+    {% if graph_data %}
+
+        <div class="ai-box">
+            <div class="ai-title">
+                🤖 AI 中医助手分析 (Ollama)
+                <span id="ai-loading" style="font-size: 14px; color: #999; margin-left: 10px; font-weight: normal;">
+                    <span class="spinner-border spinner-border-sm" role="status"></span> 正在思考中...
+                </span>
+            </div>
+            <div id="ai-result" class="ai-content">等待生成...</div>
+        </div>
+
+        <h2 style="margin-top: 30px;">知识图谱可视化：</h2>
+        <div style="margin-bottom:10px;">
+            <button id="toggle-edge-labels" class="btn btn-sm btn-outline-primary">切换关系文字显示</button>
+            <span style="font-size: 12px; color: #888; margin-left: 10px;">💡 提示：点击图中的节点查看详情</span>
+        </div>
+
+        <div class="graph-container">
+            <div id="kg-graph" style="width: 100%; height: 100%; border-radius: 8px; background: #fff;"></div>
+
+            <div id="node-info-card">
+                <h4 id="card-title">节点名称</h4>
+                <div id="card-content">
+                    </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+        <script>
+            const rawData = {{ graph_data|tojson }};
+            const myChart = echarts.init(document.getElementById('kg-graph'));
+            let showEdgeLabel = true;
+
+            // 1. 配置图表选项
+            const option = {
+                title: { text: '症状关联图谱', top: 'bottom', left: 'right' },
+                tooltip: {
+                    trigger: 'item',
+                    formatter: function(params) {
+                        // 鼠标悬停时的简单提示
+                        if (params.dataType === 'node') {
+                            return params.data.name + ' (' + params.data.category + ')';
+                        }
+                        return params.data.name; // 边的提示
+                    }
+                },
+                legend: { top: '5%', left: 'center' },
+                series: [{
+                    type: 'graph',
+                    layout: 'force',
+                    data: rawData.nodes,
+                    links: rawData.links,
+                    categories: rawData.categories,
+                    roam: true,
+                    label: { show: true, position: 'right' },
+                    force: {
+                        repulsion: 150,
+                        gravity: 0.1,
+                        edgeLength: 100
+                    },
+                    lineStyle: { color: 'source', curveness: 0.3 },
+                    edgeLabel: {
+                        show: true,
+                        formatter: function (x) { return x.data.name; },
+                        fontSize: 10,
+                        color: '#666'
+                    },
+                    edgeSymbol: ['circle', 'arrow'],
+                    edgeSymbolSize: [4, 8]
+                }]
+            };
+
+            myChart.setOption(option);
+
+            // 2. 点击节点显示详情卡片逻辑
+            myChart.on('click', function (params) {
+                if (params.dataType === 'node') {
+                    const data = params.data;
+                    const card = document.getElementById('node-info-card');
+                    const title = document.getElementById('card-title');
+                    const content = document.getElementById('card-content');
+
+                    // 设置标题
+                    title.innerText = data.name;
+
+                    // 构建内容 HTML
+                    let html = `<p><strong>类型:</strong> ${data.category}</p>`;
+
+                    // 如果节点 ID 包含额外信息（这取决于你后端怎么传数据，通常我们可以直接显示 category）
+                    // 你也可以在后端构建节点时添加 'properties' 字段传过来
+                    if (data.symbolSize) {
+                         // 只是示例，显示一些属性
+                         html += `<p><strong>权重:</strong> ${data.symbolSize}</p>`;
+                    }
+
+                    content.innerHTML = html;
+                    card.style.display = 'block';
+                } else {
+                    // 点击边或空白处隐藏
+                    document.getElementById('node-info-card').style.display = 'none';
+                }
+            });
+
+            // 点击画布空白处隐藏详情卡片
+            myChart.getZr().on('click', function (params) {
+                if (!params.target) {
+                    document.getElementById('node-info-card').style.display = 'none';
+                }
+            });
+
+            // 窗口大小改变自适应
+            window.addEventListener('resize', () => myChart.resize());
+
+            // 切换关系文字
+            document.getElementById('toggle-edge-labels').addEventListener('click', function () {
+                showEdgeLabel = !showEdgeLabel;
+                myChart.setOption({
+                    series: [{ edgeLabel: { show: showEdgeLabel } }]
+                });
+            });
+
+            // 3. 自动触发 AI 分析 (Ollama)
+            const currentSymptom = "{{ request.form.get('symptom', '') }}";
+            if (currentSymptom) {
+                fetch('/ask_ollama', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'symptom=' + encodeURIComponent(currentSymptom)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    const resultDiv = document.getElementById('ai-result');
+                    const loadingSpan = document.getElementById('ai-loading');
+
+                    // 隐藏加载动画
+                    loadingSpan.style.display = 'none';
+
+                    // 逐字显示效果 (简单的打字机效果)
+                    resultDiv.innerHTML = data.result;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('ai-result').innerText = "AI 服务连接失败，请检查 Ollama 是否运行。";
+                    document.getElementById('ai-loading').style.display = 'none';
+                });
+            } else {
+                 document.getElementById('ai-loading').style.display = 'none';
+                 document.getElementById('ai-result').innerText = "请输入症状以获取 AI 分析。";
+            }
+        </script>
+
+        {% if table_data %}
+            <h2 style="margin-top: 40px;">具体中药配方：</h2>
+            <table class="table table-bordered table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>药方名称</th>
+                        <th>中药</th>
+                        <th>剂量</th>
+                        <th>中药功能主治</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% set span_map = {} %}
+                {% for row in table_data %}
+                    {% set span_map = span_map.update({row['方名']: (span_map.get(row['方名'], 0) + 1)}) or span_map %}
+                {% endfor %}
+                {% set shown = {} %}
+                {% for row in table_data %}
+                <tr>
+                    {% if not shown.get(row['方名']) %}
+                        <td rowspan="{{ span_map[row['方名']] }}" style="vertical-align: middle; font-weight: bold;">{{ row['方名'] }}</td>
+                    {% endif %}
+                    <td>{{ row['中药'] }}</td>
+                    <td>{{ row['剂量'] }}</td>
+                    {% if not shown.get(row['方名']) %}
+                        <td rowspan="{{ span_map[row['方名']] }}" class="herb-function" style="vertical-align: middle;">{{ row['中药功能主治'] }}</td>
+                        {% set _ = shown.update({row['方名']: True}) %}\
+                    {% endif %}
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    {% else %}
+        <div style="text-align: center; margin-top: 50px; color: #777;">
+            <p>👋 请在上方输入症状进行查询，系统将为您生成知识图谱并进行 AI 分析。</p>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}
