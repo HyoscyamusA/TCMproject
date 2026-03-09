@@ -1,26 +1,29 @@
 {% extends "layout.html" %}
 {% block content %}
+<div class="container-fluid">
+    <h3>💬 智能问答模式 (寻医问药)</h3>
+    <p class="text-muted">本模块专用于查询 <strong>症状</strong> 或 <strong>疾病</strong>，系统将匹配对症方剂。</p>
 
+    <style>
+        .form-control::placeholder { color: #999 !important; opacity: 1; }
+        .table-hover tbody tr:hover { background-color: #f1f8ff; }
+        .align-middle { vertical-align: middle !important; }
+        .text-primary { color: #0d6efd !important; }
+    </style>
 
-   <div class="container-fluid py-2">
-    <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; background-color: #ffffff;">
-        <div class="card-body p-4">
-            <h4 class="mb-2 text-primary" style="font-weight: bold;">💬 症状辨证问答</h4>
-            <p class="text-muted small mb-4">请输入症状或疾病（如：头痛、感冒），系统将为您查找相关方剂。</p>
-
-            <form method="POST" class="row g-3 align-items-center">
-                <div class="col-md-9">
-                    <input type="text" id="symptom" name="symptom" class="form-control form-control-lg bg-light border-0" required
-                           placeholder="在此输入症状或疾病..."
-                           value="{{ request.form.get('symptom', '') }}" style="border-radius: 8px;">
-                </div>
-                <div class="col-md-3 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary btn-lg w-100" style="border-radius: 8px;">🔍 查询</button>
-                    <a href="{{ url_for('answer') }}" class="btn btn-light btn-lg border" style="border-radius: 8px;">重置</a>
-                </div>
-                <input type="hidden" name="mode" value="answer">
-            </form>
-        </div>
+    <div class="card p-3 mb-4 shadow-sm">
+        <form method="POST" class="row g-3 align-items-center">
+            <div class="col-auto" style="flex-grow: 1;">
+                <input type="text" id="symptom" name="symptom" class="form-control" required
+                       placeholder="请输入症状（如：失眠、胃痛）或 疾病名（如：感冒）..."
+                       value="{{ request.form.get('symptom', '') }}">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">🔍 查询对症方剂</button>
+                <a href="{{ url_for('answer') }}" class="btn btn-outline-secondary">重置</a>
+            </div>
+            <input type="hidden" name="mode" value="answer">
+        </form>
     </div>
 
     <div class="result">
@@ -28,30 +31,36 @@
             <div class="row">
                 <div class="col-lg-8">
                     <div class="card shadow-sm mb-4">
-                        <div class="card-header bg-light"><strong>图谱可视化</strong></div>
+                        <div class="card-header bg-light"><strong>知识图谱可视化</strong></div>
                         <div class="card-body p-0">
                             <div id="kg-graph" style="width: 100%; height: 750px;"></div>
                         </div>
                     </div>
                 </div>
+
                 <div class="col-lg-4">
                     <div class="card shadow-sm mb-3">
-                        <div class="card-header bg-primary text-white">🤖 <strong>AI 分析</strong></div>
+                        <div class="card-header bg-primary text-white">🤖 <strong>AI 病症分析</strong></div>
                         <div class="card-body">
-                            <div id="ai-loading" style="display:none; text-align: center;"><div class="spinner-border text-primary"></div></div>
-                            <div id="ai-result" style="min-height: 100px;">点击下方按钮获取 AI 分析。</div>
-                            <button id="btn-ask-ai" class="btn btn-success w-100 mt-3">✨ 分析病因</button>
+                            <div id="ai-loading" style="display:none; text-align: center; color: #666;">
+                                <div class="spinner-border text-primary" role="status"></div>
+                                <p class="mt-2">AI 正在思考...</p>
+                            </div>
+                            <div id="ai-result" style="font-size: 14px; line-height: 1.6; min-height: 100px;">
+                                点击下方按钮，AI将根据症状“{{ search_keyword }}”进行诊断分析。
+                            </div>
+                            <button id="btn-ask-ai" class="btn btn-success w-100 mt-3">✨ 生成诊断建议</button>
                         </div>
                     </div>
-                    <div class="alert alert-info">提示：鼠标悬停节点可查看详细信息（支持滚动）。</div>
+                    <div class="alert alert-info">
+                        <strong>提示：</strong><br>
+                        鼠标悬停在图谱节点上，可滚动查看完整属性。
+                    </div>
                 </div>
             </div>
 
-
-
-
             <div class="card shadow-sm mt-4">
-                <div class="card-header"><strong>📋 推荐方剂详情</strong></div>
+                <div class="card-header"><strong>📋 推荐方剂详情表</strong></div>
                 <div class="card-body">
                     {% if table_data %}
                     <div class="table-responsive">
@@ -94,30 +103,30 @@
             <script>
                 const rawData = {{ graph_data|tojson }};
                 const myChart = echarts.init(document.getElementById('kg-graph'));
+
                 const option = {
                     title: { text: '查询结果', top: 10, left: 10 },
-                    // 🔥 Tooltip 完美样式修复 🔥
                     tooltip: {
                         trigger: 'item',
-                        enterable: true,
-                        confine: true, // 限制在图表内
-                        // 强制宽度 + 最大高度 + 滚动条 + 背景色
-                        extraCssText: 'width: 380px; max-height: 400px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.2); white-space: normal; word-break: break-all;',
-                        backgroundColor: 'rgba(255, 255, 255, 0.98)',
-                        textStyle: { color: '#333' },
+                        enterable: true, // 允许鼠标进入悬浮框
+                        confine: true,   // 限制在图表区域内
+                        // 🔥 核心修复：限制高度 + 滚动条
+                        extraCssText: 'max-height: 400px; overflow-y: auto; box-shadow: 0 0 10px rgba(0,0,0,0.2);',
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
                         formatter: function (params) {
                             const attr = params.data.attributes || {};
                             const name = params.name;
                             const typeStr = params.dataType === 'node' ? '实体详情' : '关系详情';
-                            let html = `<div style="border-bottom:1px solid #eee;padding-bottom:8px;margin-bottom:8px;font-size:14px;">
+
+                            let html = `<div style="border-bottom:1px solid #ddd;padding-bottom:5px;margin-bottom:5px;">
                                             <strong>${name}</strong> <span style="color:#999;font-size:12px">(${typeStr})</span>
                                         </div>`;
-                            html += '<table style="font-size:12px;width:100%;border-collapse:collapse;">';
+                            html += '<table style="font-size:12px;width:100%;">';
                             for (let key in attr) {
                                 if(key === 'name' || key === 'id') continue;
                                 html += `<tr>
-                                            <td style="color:#666;padding:3px 10px 3px 0;width:70px;vertical-align:top;">${key}:</td>
-                                            <td style="color:#333;line-height:1.4;"><b>${attr[key]}</b></td>
+                                            <td style="color:#666;padding-right:10px;vertical-align:top;white-space:nowrap;">${key}:</td>
+                                            <td style="color:#333;word-break:break-all;"><b>${attr[key]}</b></td>
                                          </tr>`;
                             }
                             html += '</table>';
@@ -133,7 +142,7 @@
                         categories: rawData.categories,
                         roam: true,
                         label: { show: true, position: 'right' },
-                        edgeLabel: { show: true, formatter: function(x){return x.data.name}, fontSize: 10 },
+                        edgeLabel: { show: true, formatter: function(x){return x.data.name}, fontSize: 10, color: '#888' },
                         force: { repulsion: 250, edgeLength: 120, gravity: 0.05 },
                         lineStyle: { curveness: 0.1 }
                     }]
@@ -141,7 +150,6 @@
                 myChart.setOption(option);
                 window.addEventListener('resize', () => myChart.resize());
 
-                // AI 按钮
                 document.getElementById('btn-ask-ai').addEventListener('click', function() {
                     const btn = this;
                     const loading = document.getElementById('ai-loading');
@@ -155,15 +163,18 @@
                         body: new URLSearchParams({ 'symptom': '{{ search_keyword }}' })
                     })
                     .then(r => r.json())
-                    .then(data => { loading.style.display = 'none'; btn.disabled = false; resultDiv.innerText = data.result; })
-                    .catch(err => { loading.style.display = 'none'; btn.disabled = false; resultDiv.innerText = "请求超时"; });
+                    .then(data => {
+                        loading.style.display = 'none';
+                        btn.disabled = false;
+                        resultDiv.innerText = data.result;
+                    })
+                    .catch(err => {
+                        loading.style.display = 'none';
+                        btn.disabled = false;
+                        resultDiv.innerText = "请求超时";
+                    });
                 });
             </script>
-        {% elif request.method == 'POST' %}
-            <div class="alert alert-warning text-center shadow-sm border-0 py-4" style="border-radius: 12px;">
-                <h5 class="mb-2">未找到相关结果</h5>
-                <p class="text-muted mb-0">系统库中暂未匹配到与 "<strong>{{ search_keyword }}</strong>" 相关的疾病或方剂。</p>
-            </div>
         {% endif %}
     </div>
 </div>

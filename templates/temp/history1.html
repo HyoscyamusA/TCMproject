@@ -1,0 +1,220 @@
+{% extends "layout.html" %}
+{% block content %}
+<h3>查询历史记录</h3>
+
+<div style="margin-bottom: 30px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h4>🧠 推理模式历史</h4>
+        <button id="clear-inference" class="btn btn-sm btn-outline-danger">清除推理模式历史</button>
+    </div>
+    <div style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 15px; background-color: #f9f9f9;">
+        {% if inference_history %}
+            <ul style="list-style: none; padding: 0; margin: 0;">
+                {% for item in inference_history %}
+                <li style="padding: 12px; margin-bottom: 8px; background-color: #fff; border-radius: 4px; border-left: 4px solid {% if item.has_result %}#28a745{% else %}#dc3545{% endif %}; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="flex: 1;">
+                            <a href="javascript:void(0);" class="history-item" data-query="{{ item.query }}" data-mode="inference" style="color: #007bff; text-decoration: none; cursor: pointer; display: block; font-size: 16px;">
+                                <strong>{{ item.query }}</strong>
+                            </a>
+                            <small style="color: #666; display: block; margin-top: 6px;">{{ item.timestamp }}</small>
+                        </div>
+                        <span style="font-size: 13px; padding: 4px 8px; border-radius: 4px; background-color: {% if item.has_result %}#d4edda{% else %}#f8d7da{% endif %}; color: {% if item.has_result %}#155724{% else %}#721c24{% endif %};">
+                            {% if item.has_result %}✓ 有结果{% else %}✗ 无结果{% endif %}
+                        </span>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p style="text-align: center; color: #999; margin: 40px 0;">暂无推理模式查询历史</p>
+        {% endif %}
+    </div>
+</div>
+
+<div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h4>💬 问答模式历史</h4>
+        <button id="clear-answer" class="btn btn-sm btn-outline-danger">清除问答模式历史</button>
+    </div>
+    <div style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 15px; background-color: #f9f9f9;">
+        {% if answer_history %}
+            <ul style="list-style: none; padding: 0; margin: 0;">
+                {% for item in answer_history %}
+                <li style="padding: 12px; margin-bottom: 8px; background-color: #fff; border-radius: 4px; border-left: 4px solid {% if item.has_result %}#28a745{% else %}#dc3545{% endif %}; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="flex: 1;">
+                            <a href="javascript:void(0);" class="history-item" data-query="{{ item.query }}" data-mode="answer" style="color: #007bff; text-decoration: none; cursor: pointer; display: block; font-size: 16px;">
+                                <strong>{{ item.query }}</strong>
+                            </a>
+                            <small style="color: #666; display: block; margin-top: 6px;">{{ item.timestamp }}</small>
+                        </div>
+                        <span style="font-size: 13px; padding: 4px 8px; border-radius: 4px; background-color: {% if item.has_result %}#d4edda{% else %}#f8d7da{% endif %}; color: {% if item.has_result %}#155724{% else %}#721c24{% endif %};">
+                            {% if item.has_result %}✓ 有结果{% else %}✗ 无结果{% endif %}
+                        </span>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p style="text-align: center; color: #999; margin: 40px 0;">暂无问答模式查询历史</p>
+        {% endif %}
+    </div>
+</div>
+<!-- 在推理模式历史和问答模式历史之间添加 -->
+<div style="margin-bottom: 30px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h4>🌿 药材搜索历史</h4>
+        <button id="clear-herb" class="btn btn-sm btn-outline-danger">清除药材搜索历史</button>
+    </div>
+    <div style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 15px; background-color: #f9f9f9;">
+        {% if herb_history %}
+            <ul style="list-style: none; padding: 0; margin: 0;">
+                {% for item in herb_history %}
+                <li style="padding: 12px; margin-bottom: 8px; background-color: #fff; border-radius: 4px; border-left: 4px solid {% if item.has_result %}#28a745{% else %}#dc3545{% endif %}; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="flex: 1;">
+                            <a href="javascript:void(0);" class="history-item" data-query="{{ item.query }}" data-mode="herb" style="color: #007bff; text-decoration: none; cursor: pointer; display: block; font-size: 16px;">
+                                <strong>{{ item.query }}</strong>
+                            </a>
+                            <small style="color: #666; display: block; margin-top: 6px;">{{ item.timestamp }}</small>
+                        </div>
+                        <span style="font-size: 13px; padding: 4px 8px; border-radius: 4px; background-color: {% if item.has_result %}#d4edda{% else %}#f8d7da{% endif %}; color: {% if item.has_result %}#155724{% else %}#721c24{% endif %};">
+                            {% if item.has_result %}✓ 有结果{% else %}✗ 无结果{% endif %}
+                        </span>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p style="text-align: center; color: #999; margin: 40px 0;">暂无药材搜索历史</p>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    // 点击历史记录项，跳转到对应模式并自动查询
+    document.querySelectorAll('.history-item').forEach(function(item) {
+        item.addEventListener('click', function() {
+            const query = this.getAttribute('data-query');
+            const mode = this.getAttribute('data-mode');
+            //const targetUrl = mode === 'inference' ? '/inference' : '/answer';
+             // 1. 定义路由和表单字段配置映射表
+            // 未来增加新模式，只需在这里添加一行
+            const routeConfig = {
+                'inference': { url: '/inference', fieldName: 'symptom' },
+                'answer': { url: '/answer', fieldName: 'symptom' },
+                'herb': { url: '/herb_search', fieldName: 'herb_name' } // 新增的药材搜索模式
+                // 'new_mode': { url: '/new_url', fieldName: 'new_field' }, // 示例：未来添加的新模式
+            };
+
+        // 2. 根据 mode 获取配置，如果找不到则使用 'answer' 作为默认值
+        const config = routeConfig[mode] || routeConfig['answer'];
+
+        // 3. 从配置中获取目标 URL 和表单字段名
+        const targetUrl = config.url;
+        const fieldName = config.fieldName;
+
+            // 创建表单并提交
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = targetUrl;
+
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            //input.name = 'symptom';
+            input.name=fieldName;
+            input.value = query;
+            form.appendChild(input);
+            
+            const modeInput = document.createElement('input');
+            modeInput.type = 'hidden';
+            modeInput.name = 'mode';
+            modeInput.value = mode;
+            form.appendChild(modeInput);
+            
+            // 添加标记，表示从历史记录跳转
+            const fromHistoryInput = document.createElement('input');
+            fromHistoryInput.type = 'hidden';
+            fromHistoryInput.name = 'from_history';
+            fromHistoryInput.value = 'true';
+            form.appendChild(fromHistoryInput);
+            
+            document.body.appendChild(form);
+            form.submit();
+        });
+    });
+
+    // 清除推理模式历史
+    document.getElementById('clear-inference').addEventListener('click', function() {
+        if (confirm('确定要清除推理模式的所有历史记录吗？')) {
+            fetch('/clear_history', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'mode=inference'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('清除历史记录失败，请稍后再试');
+            });
+        }
+    });
+    // 清除药材搜索历史
+    document.getElementById('clear-herb').addEventListener('click', function() {
+    if (confirm('确定要清除药材搜索的所有历史记录吗？')) {
+        fetch('/clear_history', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'mode=herb'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('清除历史记录失败，请稍后再试');
+            });
+        }
+    });
+
+    // 清除问答模式历史
+    document.getElementById('clear-answer').addEventListener('click', function() {
+        if (confirm('确定要清除问答模式的所有历史记录吗？')) {
+            fetch('/clear_history', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'mode=answer'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('清除历史记录失败，请稍后再试');
+            });
+        }
+    });
+</script>
+
+{% endblock %}
+
+
+

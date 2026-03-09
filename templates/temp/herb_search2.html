@@ -1,0 +1,176 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center mb-4">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-body bg-light text-center">
+                    <h3 class="mb-3 text-success"><i class="fas fa-leaf"></i> 药材反向检索</h3>
+                    <p class="text-muted small">输入药材名称，查看哪些方剂使用了它，以及具体的剂量和炮制方法。</p>
+                    <form method="POST" class="form-inline justify-content-center">
+                        <div class="input-group w-75">
+                            <input type="text" name="herb_name" class="form-control form-control-lg"
+                                   placeholder="例如：桂枝、甘草、当归"
+                                   value="{{ search_term }}" required>
+                            <div class="input-group-append">
+                                <button type="submit" class="btn btn-success btn-lg">
+                                    <i class="fas fa-search"></i> 搜索
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if graph_data %}
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">知识图谱可视化</h6>
+                    <button id="toggle-edge" class="btn btn-sm btn-outline-secondary">显示/隐藏连线文字</button>
+                </div>
+                <div class="card-body" style="padding: 0;">
+                    <div id="kg-graph" style="width: 100%; height: 600px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-success">
+                        "{{ search_term }}" 应用详情
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                        <table class="table table-striped table-hover mb-0 text-center">
+                            <thead class="thead-light sticky-top">
+                                <tr>
+                                    <th>方剂名称</th>
+                                    <th>剂量</th>
+                                    <th>炮制/备注</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in related_prescriptions %}
+                                <tr>
+                                    <td class="align-middle">
+                                        <span class="font-weight-bold text-primary">{{ item.name }}</span>
+                                    </td>
+                                    <td class="align-middle text-danger">{{ item.dosage or '-' }}</td>
+                                    <td class="align-middle text-muted small">{{ item.processing or '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% elif request.method == 'POST' %}
+    <div class="alert alert-warning text-center">
+        未找到药材 <strong>{{ search_term }}</strong> 的相关方剂记录，请检查名称是否正确。
+    </div>
+    {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.0/dist/echarts.min.js"></script>
+
+{% if graph_data %}
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        var chartDom = document.getElementById('kg-graph');
+        var myChart = echarts.init(chartDom);
+        var option;
+        var showEdgeLabel = true;
+
+        // 获取后端传来的数据
+        var graphData = {{ graph_data | tojson }};
+
+        option = {
+            title: {
+                text: '包含 "{{ search_term }}" 的方剂',
+                left: 'center',
+                top: 10
+            },
+            tooltip: {
+                trigger: 'item',
+                formatter: function (params) {
+                    if (params.dataType === 'edge') {
+                        // 鼠标悬停在线上：显示详细的剂量和炮制
+                        var d = params.data.dosage ? `<b>剂量:</b> ${params.data.dosage}` : '';
+                        var p = params.data.processing ? `<b>炮制:</b> ${params.data.processing}` : '';
+                        return `${params.data.source} → ${params.data.target}<br/>${d}<br/>${p}`;
+                    } else {
+                        // 鼠标悬停在节点上
+                        return params.name;
+                    }
+                }
+            },
+            legend: {
+                data: graphData.categories.map(function (a) { return a.name; }),
+                bottom: 10
+            },
+            series: [{
+                type: 'graph',
+                layout: 'force',
+                data: graphData.nodes,
+                links: graphData.links,
+                categories: graphData.categories,
+                roam: true,
+                draggable: true,
+                label: {
+                    show: true,
+                    position: 'right',
+                    formatter: '{b}'
+                },
+                edgeSymbol: ['circle', 'arrow'],
+                edgeSymbolSize: [4, 8],
+                edgeLabel: {
+                    show: true,
+                    fontSize: 11,
+                    formatter: function (x) {
+                        // 默认线上文字：优先显示剂量
+                        return x.data.dosage || '';
+                    },
+                    color: '#e74c3c'
+                },
+                lineStyle: {
+                    color: '#bdc3c7',
+                    curveness: 0.1,
+                    width: 2
+                },
+                force: {
+                    repulsion: 350,
+                    edgeLength: 150,
+                    gravity: 0.05
+                }
+            }]
+        };
+
+        myChart.setOption(option);
+
+        // 窗口大小调整自适应
+        window.addEventListener('resize', function() {
+            myChart.resize();
+        });
+
+        // 按钮交互：切换连线文字
+        document.getElementById('toggle-edge').addEventListener('click', function() {
+            showEdgeLabel = !showEdgeLabel;
+            myChart.setOption({
+                series: [{
+                    edgeLabel: { show: showEdgeLabel }
+                }]
+            });
+        });
+    });
+</script>
+{% endif %}
+{% endblock %}

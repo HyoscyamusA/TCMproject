@@ -1,0 +1,136 @@
+{% extends "layout.html" %}
+{% block content %}
+<style>
+    .chat-container {
+        display: flex;
+        flex-direction: column;
+        height: 85vh;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        overflow: hidden;
+    }
+    .chat-box {
+        flex-grow: 1;
+        padding: 20px;
+        overflow-y: auto;
+        background-color: #fafbfc;
+    }
+    .message {
+        margin-bottom: 20px;
+        display: flex;
+        flex-direction: column;
+    }
+    .message.user { align-items: flex-end; }
+    .message.ai { align-items: flex-start; }
+
+    .msg-bubble {
+        max-width: 75%;
+        padding: 12px 18px;
+        border-radius: 12px;
+        line-height: 1.6;
+    }
+    .message.user .msg-bubble {
+        background-color: #3498db;
+        color: white;
+        border-bottom-right-radius: 2px;
+    }
+    .message.ai .msg-bubble {
+        background-color: #ffffff;
+        border: 1px solid #e0e0e0;
+        color: #2c3e50;
+        border-bottom-left-radius: 2px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+    }
+    .input-area {
+        padding: 15px 20px;
+        background: #fff;
+        border-top: 1px solid #eee;
+        display: flex;
+        gap: 10px;
+    }
+    #chat-input {
+        border-radius: 20px;
+        padding-left: 20px;
+    }
+    .typing-indicator { color: #888; font-style: italic; display: none; padding: 10px; }
+    .message-bubble {
+        max-width: 85%;
+        word-wrap: break-word;
+        margin-bottom: 15px;
+        padding: 12px;
+        border-radius: 15px;
+    }
+</style>
+
+<div class="container-fluid py-3">
+    <div class="mb-3">
+        <h3 style="color: #2c3e50; font-weight: bold;">🤖 基于知识图谱的 AI 智能问答</h3>
+        <p class="text-muted mb-0">AI 将自动检索数据库中的症状、方剂、药材并为您提供专业解答。</p>
+    </div>
+
+    <div class="chat-container">
+        <div class="chat-box" id="chat-box">
+            {% for chat in chat_history %}
+                <div class="message user"><div class="msg-bubble">{{ chat.question }}</div></div>
+                <div class="message ai"><div class="msg-bubble">{{ chat.answer | safe }}</div></div>
+            {% endfor %}
+            <div class="message ai" id="welcome-msg">
+                <div class="msg-bubble">您好！我是中医知识图谱智能助手。您可以这样问我：<br>
+                - “治疗头痛失眠有什么推荐的方剂吗？”<br>
+                - “麻黄汤是由哪些药材组成的？主治什么？”</div>
+            </div>
+            <div class="typing-indicator" id="typing">AI 正在翻阅图谱思考中...</div>
+        </div>
+
+        <div class="input-area">
+            <input type="text" id="chat-input" class="form-control" placeholder="输入您的临床症状或要查询的方剂、药材..." onkeypress="handleEnter(event)">
+            <button class="btn btn-primary px-4" style="border-radius: 20px;" onclick="sendMessage()">发送</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const chatBox = document.getElementById('chat-box');
+    const inputField = document.getElementById('chat-input');
+    const typingIndicator = document.getElementById('typing');
+
+    // 自动滚动到最底部
+    function scrollToBottom() { chatBox.scrollTop = chatBox.scrollHeight; }
+    window.onload = scrollToBottom;
+
+    function handleEnter(e) { if(e.key === 'Enter') sendMessage(); }
+
+    function sendMessage() {
+        const text = inputField.value.trim();
+        if(!text) return;
+
+        // 1. 添加用户消息到界面
+        inputField.value = '';
+        chatBox.insertAdjacentHTML('beforeend', `<div class="message user"><div class="msg-bubble">${text}</div></div>`);
+
+        // 2. 显示等待动画
+        typingIndicator.style.display = 'block';
+        chatBox.appendChild(typingIndicator); // 把指示器挪到最后
+        scrollToBottom();
+
+        // 3. 发送请求给后端
+        fetch("{{ url_for('ai_chat') }}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question: text })
+        })
+        .then(response => response.json())
+        .then(data => {
+            typingIndicator.style.display = 'none';
+            chatBox.insertAdjacentHTML('beforeend', `<div class="message ai"><div class="msg-bubble">${data.reply}</div></div>`);
+            scrollToBottom();
+        })
+        .catch(err => {
+            typingIndicator.style.display = 'none';
+            chatBox.insertAdjacentHTML('beforeend', `<div class="message ai"><div class="msg-bubble text-danger">系统网络请求异常，请稍后再试。</div></div>`);
+            console.error(err);
+        });
+    }
+</script>
+{% endblock %}

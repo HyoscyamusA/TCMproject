@@ -1,0 +1,79 @@
+<!-- templates/wordcloud.html -->
+{% extends "layout.html" %}
+
+{% block content %}
+<div style="text-align: center; margin-bottom: 30px;">
+  <h1 style="color: #333; font-size: 28px;">中医知识图谱 - 词云分析</h1>
+  <p style="color: #666; font-size: 16px;">基于中药功效描述的关键词可视化</p>
+</div>
+
+<div style="background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+  <div id="wordcloud" style="width: 100%; height: 600px;"></div>
+</div>
+
+<!-- 引入 ECharts 和词云插件 -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts-wordcloud@2.0.0/dist/echarts-wordcloud.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const wordcloudChart = echarts.init(document.getElementById('wordcloud'));
+
+  // 从后端获取词云数据
+  fetch('/api/wordcloud_data')
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        wordcloudChart.setOption({
+          title: { text: data.error },
+          tooltip: {}
+        });
+        return;
+      }
+
+      const option = {
+        tooltip: {
+          trigger: 'item',
+          formatter: '{b}: {c}'
+        },
+        series: [{
+          type: 'wordCloud',
+          gridSize: 20,
+          sizeRange: [12, 80],
+          rotationRange: [-90, 90],
+          shape: 'circle',
+          width: '100%',
+          height: '100%',
+          textStyle: {
+            color: function() {
+              return 'rgb(' + [
+                Math.round(Math.random() * 160),
+                Math.round(Math.random() * 160),
+                Math.round(Math.random() * 160)
+              ].join(',') + ')';
+            },
+            emphasis: {
+              shadowBlur: 10,
+              shadowColor: '#333'
+            }
+          },
+          data: data
+        }]
+      };
+
+      wordcloudChart.setOption(option);
+    })
+    .catch(error => {
+      console.error('获取词云数据失败:', error);
+      wordcloudChart.setOption({
+        title: { text: '词云数据加载失败' },
+        tooltip: {}
+      });
+    });
+
+  window.addEventListener('resize', () => {
+    wordcloudChart.resize();
+  });
+});
+</script>
+{% endblock %}

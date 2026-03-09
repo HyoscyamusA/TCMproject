@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+{% block content %}
+<div style="padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+    <h2 style="margin-bottom: 16px;">欢迎使用中医知识图谱系统</h2>
+    <p style="line-height: 1.8; color: #555;">
+        本系统基于中医知识图谱构建，提供两种主要功能：
+    </p>
+    <ul style="line-height: 1.8; color: #555;">
+        <li><strong>推理模式：</strong>输入两个方剂，探索它们的组成、功能主治以及是否存在共同点。</li>
+        <li><strong>问答模式：</strong>输入症状，系统将根据知识图谱给出相关方剂、中药组成及主治说明。</li>
+    </ul>
+    <p style="line-height: 1.8; color: #555;">
+        您可以通过左侧导航在不同功能之间切换，也可以查看历史查询记录。希望本系统能够帮助您更好地了解中医知识。
+    </p>
+    <div style="margin-top: 24px;">
+        <a href="{{ url_for('inference') }}" class="btn btn-primary" style="margin-right: 12px;">开始推理模式</a>
+        <a href="{{ url_for('answer') }}" class="btn btn-outline-primary">进入问答模式</a>
+    </div>
+</div>
+
+{% endblock %}
+
+
+

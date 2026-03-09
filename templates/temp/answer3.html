@@ -1,0 +1,204 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container-fluid">
+    <h3>💬 智能问答模式</h3>
+    <p class="text-muted">输入症状（如"头晕"），系统将检索相关方剂、组成及中药详情。</p>
+
+    <div class="card p-3 mb-4 shadow-sm">
+        <form method="POST" class="row g-3 align-items-center">
+            <div class="col-auto" style="flex-grow: 1;">
+                <input type="text" id="symptom" name="symptom" class="form-control" required
+                       placeholder="请输入症状，例如：失眠、头痛、胃痛..."
+                       value="{{ request.form.get('symptom', '') }}">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">🔍 图谱查询</button>
+                <a href="{{ url_for('answer') }}" class="btn btn-outline-secondary">重置</a>
+            </div>
+            <input type="hidden" name="mode" value="answer">
+        </form>
+    </div>
+
+    <div class="result">
+        {% if graph_data %}
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <strong>知识图谱可视化</strong>
+                            <span class="badge bg-info text-dark">滚轮缩放 / 拖拽移动</span>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="kg-graph" style="width: 100%; height: 700px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header bg-gradient-primary text-white" style="background-color: #4e73df;">
+                            🤖 <strong>AI 中医助手分析</strong>
+                        </div>
+                        <div class="card-body">
+                            <div id="ai-loading" style="display:none; text-align: center; color: #666;">
+                                <div class="spinner-border text-primary" role="status"></div>
+                                <p class="mt-2">正在分析病因与方剂...</p>
+                            </div>
+                            <div id="ai-result" style="font-size: 14px; line-height: 1.6; min-height: 100px;">
+                                点击下方按钮获取 AI 对“{{ search_keyword }}”的深度分析。
+                            </div>
+                            <button id="btn-ask-ai" class="btn btn-success w-100 mt-3">
+                                ✨ 生成 AI 诊断建议
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info" style="font-size: 0.9rem;">
+                        <strong>提示：</strong><br>
+                        1. 鼠标悬停在节点或连线上可查看详细属性。<br>
+                        2. 绿色节点为方剂，蓝色节点为中药。<br>
+                        3. 连线上的文字代表剂量。
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header"><strong>📋 详细配方列表</strong></div>
+                <div class="card-body">
+                    <style>
+                        .table-hover tbody tr:hover { background-color: #f1f8ff; }
+                        .align-middle { vertical-align: middle !important; }
+                    </style>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="15%">药方名称</th>
+                                    <th width="15%">出处</th>
+                                    <th width="10%">中药</th>
+                                    <th width="10%">剂量</th>
+                                    <th>中药功能主治</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% set span_map = {} %}
+                                {% for row in table_data %}
+                                    {% set _ = span_map.update({row['方名']: (span_map.get(row['方名'], 0) + 1)}) %}
+                                {% endfor %}
+
+                                {% set shown = {} %}
+                                {% for row in table_data %}
+                                <tr>
+                                    {# 只有当该方剂还没显示过时，才创建带 rowspan 的单元格 #}
+                                    {% if not shown.get(row['方名']) %}
+                                        <td rowspan="{{ span_map[row['方名']] }}" class="align-middle fw-bold text-primary">
+                                            {{ row['方名'] }}
+                                        </td>
+                                        <td rowspan="{{ span_map[row['方名']] }}" class="align-middle text-muted">
+                                            {{ row['出处'] }}
+                                        </td>
+                                        {% set _ = shown.update({row['方名']: True}) %}
+                                    {% endif %}
+
+                                    <td>{{ row['中药'] }}</td>
+                                    <td><span class="badge bg-secondary">{{ row['剂量'] }}</span></td>
+                                    <td><small>{{ row['功效'] }}</small></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+            <script>
+                const rawData = {{ graph_data|tojson }};
+                const chartDom = document.getElementById('kg-graph');
+                const myChart = echarts.init(chartDom);
+
+                // 颜色映射 (和后端保持一致)
+                const colors = ['#87EBC1', '#69B2FF', '#EE90A1', '#FF9F40'];
+
+                const option = {
+                    title: { text: '“{{ search_keyword }}” 相关方剂图谱', left: 'center', top: 10 },
+                    tooltip: {
+                        trigger: 'item',
+                        triggerOn: 'mousemove', // 鼠标悬停显示
+                        enterable: true,        // 允许鼠标进入提示框
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        borderColor: '#ccc',
+                        borderWidth: 1,
+                        textStyle: { color: '#333' },
+                        extraCssText: 'box-shadow: 0 0 10px rgba(0,0,0,0.2); padding: 10px;',
+                        formatter: function (params) {
+                            // ✨✨✨ 核心修复：解析 attributes 并显示为 HTML ✨✨✨
+                            if (params.dataType === 'node') {
+                                const attr = params.data.attributes || {};
+                                let html = `<div style="font-weight:bold; border-bottom:1px solid #ddd; padding-bottom:5px; margin-bottom:5px;">${params.name}</div>`;
+                                html += '<table style="font-size:12px; line-height:1.5;">';
+                                for (const key in attr) {
+                                    html += `<tr><td style="color:#666; padding-right:10px;">${key}:</td><td><b>${attr[key]}</b></td></tr>`;
+                                }
+                                html += '</table>';
+                                return html;
+                            } else if (params.dataType === 'edge') {
+                                const attr = params.data.attributes || {};
+                                return `<b>关系详情</b><br/>${params.data.source} → ${params.data.target}<br/>剂量: ${params.data.name}`;
+                            }
+                        }
+                    },
+                    legend: { top: 'bottom', data: rawData.categories.map(a => a.name) },
+                    series: [{
+                        type: 'graph',
+                        layout: 'force',
+                        data: rawData.nodes,
+                        links: rawData.links,
+                        categories: rawData.categories,
+                        roam: true,
+                        label: { show: true, position: 'right', formatter: '{b}' },
+                        edgeLabel: {
+                            show: true,
+                            fontSize: 10,
+                            formatter: function(x) { return x.data.name; } // 线上的文字
+                        },
+                        lineStyle: { color: 'source', curveness: 0.1 },
+                        force: { repulsion: 300, edgeLength: 150, gravity: 0.05 }
+                    }]
+                };
+
+                myChart.setOption(option);
+                window.addEventListener('resize', () => myChart.resize());
+
+                // AI 按钮逻辑
+                document.getElementById('btn-ask-ai').addEventListener('click', function() {
+                    const btn = this;
+                    const loading = document.getElementById('ai-loading');
+                    const resultDiv = document.getElementById('ai-result');
+
+                    btn.disabled = true;
+                    loading.style.display = 'block';
+                    resultDiv.innerHTML = '';
+
+                    fetch('/ask_ollama', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: new URLSearchParams({ 'symptom': '{{ search_keyword }}' })
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        loading.style.display = 'none';
+                        btn.disabled = false;
+                        resultDiv.innerText = data.result;
+                    })
+                    .catch(err => {
+                        loading.style.display = 'none';
+                        btn.disabled = false;
+                        resultDiv.innerHTML = '<span class="text-danger">请求超时或出错，请检查 Ollama 后台。</span>';
+                    });
+                });
+            </script>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

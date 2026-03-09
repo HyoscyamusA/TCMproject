@@ -1,0 +1,53 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="card shadow-sm border-0 mb-4" style="border-radius: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+        <div class="card-body p-5 text-center">
+            <div class="rounded-circle bg-white d-inline-block mb-3" style="width: 80px; height: 80px; line-height: 80px;">
+                <span style="font-size: 40px;">👤</span>
+            </div>
+            <h3>{{ session['username'] }}</h3>
+            <span class="badge bg-light text-dark px-3 py-2 mt-2" style="font-size: 0.9rem;">
+                {{ "系统管理员" if session['role'] == 'admin' else "普通会员" }}
+            </span>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-7">
+            <div class="card border-0 shadow-sm p-4" style="border-radius: 12px; background: #fff;">
+                <h5 class="mb-4 text-center" style="color: #2c3e50;">🔒 账号安全 / 修改密码</h5>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                          {{ message }}
+                          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
+                <form method="POST" action="{{ url_for('profile') }}">
+                    <div class="mb-3">
+                        <label class="form-label text-muted fw-bold">当前密码</label>
+                        <input type="password" class="form-control" name="old_password" placeholder="请输入当前使用的密码" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted fw-bold">新密码</label>
+                        <input type="password" class="form-control" name="new_password" placeholder="请输入新密码" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label text-muted fw-bold">确认新密码</label>
+                        <input type="password" class="form-control" name="confirm_password" placeholder="请再次输入新密码" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 py-2" style="border-radius: 8px; font-size: 1.1rem;">
+                        保存修改
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

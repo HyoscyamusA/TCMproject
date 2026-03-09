@@ -1,26 +1,29 @@
 {% extends "layout.html" %}
 {% block content %}
+<div class="container-fluid">
+    <h3>💬 智能问答模式</h3>
+    <p class="text-muted">输入症状或疾病，查找相关方剂。</p>
 
+    <style>
+        .form-control::placeholder { color: #999 !important; opacity: 1; }
+        .table-hover tbody tr:hover { background-color: #f1f8ff; }
+        .align-middle { vertical-align: middle !important; }
+        .text-primary { color: #0d6efd !important; }
+    </style>
 
-   <div class="container-fluid py-2">
-    <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; background-color: #ffffff;">
-        <div class="card-body p-4">
-            <h4 class="mb-2 text-primary" style="font-weight: bold;">💬 症状辨证问答</h4>
-            <p class="text-muted small mb-4">请输入症状或疾病（如：头痛、感冒），系统将为您查找相关方剂。</p>
-
-            <form method="POST" class="row g-3 align-items-center">
-                <div class="col-md-9">
-                    <input type="text" id="symptom" name="symptom" class="form-control form-control-lg bg-light border-0" required
-                           placeholder="在此输入症状或疾病..."
-                           value="{{ request.form.get('symptom', '') }}" style="border-radius: 8px;">
-                </div>
-                <div class="col-md-3 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary btn-lg w-100" style="border-radius: 8px;">🔍 查询</button>
-                    <a href="{{ url_for('answer') }}" class="btn btn-light btn-lg border" style="border-radius: 8px;">重置</a>
-                </div>
-                <input type="hidden" name="mode" value="answer">
-            </form>
-        </div>
+    <div class="card p-3 mb-4 shadow-sm">
+        <form method="POST" class="row g-3 align-items-center">
+            <div class="col-auto" style="flex-grow: 1;">
+                <input type="text" id="symptom" name="symptom" class="form-control" required
+                       placeholder="如：失眠、胃痛..."
+                       value="{{ request.form.get('symptom', '') }}">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">🔍 查询</button>
+                <a href="{{ url_for('answer') }}" class="btn btn-outline-secondary">重置</a>
+            </div>
+            <input type="hidden" name="mode" value="answer">
+        </form>
     </div>
 
     <div class="result">
@@ -46,9 +49,6 @@
                     <div class="alert alert-info">提示：鼠标悬停节点可查看详细信息（支持滚动）。</div>
                 </div>
             </div>
-
-
-
 
             <div class="card shadow-sm mt-4">
                 <div class="card-header"><strong>📋 推荐方剂详情</strong></div>
@@ -159,11 +159,6 @@
                     .catch(err => { loading.style.display = 'none'; btn.disabled = false; resultDiv.innerText = "请求超时"; });
                 });
             </script>
-        {% elif request.method == 'POST' %}
-            <div class="alert alert-warning text-center shadow-sm border-0 py-4" style="border-radius: 12px;">
-                <h5 class="mb-2">未找到相关结果</h5>
-                <p class="text-muted mb-0">系统库中暂未匹配到与 "<strong>{{ search_keyword }}</strong>" 相关的疾病或方剂。</p>
-            </div>
         {% endif %}
     </div>
 </div>

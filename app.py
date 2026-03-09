@@ -30,23 +30,14 @@ COLOR_MAP = {
 
 driver = GraphDatabase.driver(NEO4J_URI, auth=NEO4J_AUTH)
 
-# # 🌟 全局登录校验拦截器
-# @app.before_request
-# def check_login():
-#     # 定义不需要登录就能访问的白名单（登录页、注册页和静态资源）
-#     white_list = ['login', 'register', 'static']
-#     if 'user_id' not in session and request.endpoint not in white_list:
-#         return redirect(url_for('login'))
-#
 # 🌟 全局登录校验拦截器
 @app.before_request
 def check_login():
-    # 增加 'index' 到白名单中，允许未登录访问首页
-    white_list = ['index', 'login', 'register', 'static']
+    # 定义不需要登录就能访问的白名单（登录页、注册页和静态资源）
+    white_list = ['login', 'register', 'static']
     if 'user_id' not in session and request.endpoint not in white_list:
         return redirect(url_for('login'))
-
-
+#
 # def init_db():
 #     conn = sqlite3.connect(DB_PATH)
 #     c = conn.cursor()
@@ -246,62 +237,21 @@ def graph_overview():
                            graph_data=json.dumps(graph_data), current_limit=limit)
 
 
-#
 # @app.route('/')
 # @app.route('/home')
 # def home():
+#     # 🌟 将变量 session 改为 neo4j_session 以免覆盖 Flask 的 session
 #     with driver.session() as neo4j_session:
-#         # 原有统计
-#         total_herbs = neo4j_session.run("MATCH (n:Herb) RETURN count(n) AS c").single()['c']
-#         total_prescriptions = neo4j_session.run("MATCH (n:Prescription) RETURN count(n) AS c").single()['c']
-#         total_diseases = neo4j_session.run("MATCH (n:Disease) RETURN count(n) AS c").single()['c']
-#         total_relations = neo4j_session.run("MATCH ()-[r]->() RETURN count(r) AS c").single()['c']
-#
-#         # 新增：典籍总数
-#         total_sources = neo4j_session.run("MATCH (s:Literature) RETURN count(s) AS c").single()['c']
-#
-#         # 典籍方剂排名
-#         source_ranking = neo4j_session.run("""
-#             MATCH (p:Prescription)-[:HAS_SOURCE]->(s:Literature)
-#             RETURN s.name AS name, count(p) AS value
-#             ORDER BY value DESC LIMIT 10
-#         """).data()
-#         source_ranking = [{'name': r['name'], 'value': r['value']} for r in source_ranking]
-#
-#         # 方剂类型排名（需存在 Category 节点和 HAS_CATEGORY 关系）
-#         category_ranking = neo4j_session.run("""
-#             MATCH (p:Prescription)-[:HAS_CATEGORY]->(c:Category)
-#             RETURN c.name AS name, count(p) AS value
-#             ORDER BY value DESC LIMIT 10
-#         """).data()
-#         category_ranking = [{'name': r['name'], 'value': r['value']} for r in category_ranking]
-#
-#     # 用户数（仅管理员可见）
-#     user_count = None
-#     if session.get('role') == 'admin':
-#         conn = sqlite3.connect(DB_PATH)
-#         user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-#         conn.close()
+#         c1 = neo4j_session.run("MATCH (n:Herb) RETURN count(n) AS c").single()['c']
+#         c2 = neo4j_session.run("MATCH (n:Prescription) RETURN count(n) AS c").single()['c']
+#         c3 = neo4j_session.run("MATCH (n:Disease) RETURN count(n) AS c").single()['c']
+#         c4 = neo4j_session.run("MATCH ()-[r]->() RETURN count(r) AS c").single()['c']
 #
 #     return render_template('home.html', active_page='home',
-#                            total_herbs=total_herbs, total_prescriptions=total_prescriptions,
-#                            total_diseases=total_diseases, total_relations=total_relations,
-#                            total_sources=total_sources,
-#                            source_ranking=source_ranking,
-#                            category_ranking=category_ranking,
-#                            user_count=user_count)
+#                            total_herbs=c1, total_prescriptions=c2,
+#                            total_diseases=c3, total_relations=c4)
 
-# ================= 新增：公开科普首页 =================
 @app.route('/')
-def index():
-    # 如果用户已经登录，直接跳转到系统内部首页 (/home)
-    if 'user_id' in session:
-        return redirect(url_for('home'))
-    # 如果未登录，则渲染刚才写好的公开科普页面
-    return render_template('index.html')
-
-# ================= 修改：系统内部大屏 =================
-# 注意：这里删除了 @app.route('/')，只保留 /home
 @app.route('/home')
 def home():
     with driver.session() as neo4j_session:
@@ -481,7 +431,68 @@ def herb_search():
             except Exception as e: print(f"Neo4j错误: {e}")
     return render_template('herb_search.html', active_page='herb_search', graph_data=graph_data, related_prescriptions=related_prescriptions, search_term=search_term)
 
+# @app.route('/dashboard')
+# def dashboard():
+#     with driver.session() as neo4j_session:
+#         c = neo4j_session.run("MATCH (h:Herb) WITH count(h) as c1 MATCH (p:Prescription) WITH c1, count(p) as c2 MATCH (d:Disease) WITH c1, c2, count(d) as c3 MATCH ()-[r]->() RETURN c1, c2, c3, count(r) as c4").single()
+#         eff = neo4j_session.run("MATCH (h:Herb)-[:HAS_EFFICACY]->(e:Efficacy) RETURN e.name as n, count(h) as c ORDER BY c DESC LIMIT 10")
+#         herb = neo4j_session.run("MATCH (p:Prescription)-[:COMPOSED_OF]->(h:Herb) RETURN h.name as n, count(p) as c ORDER BY c DESC LIMIT 10")
+#     return render_template('dashboard.html', total_herbs=c['c1'], total_prescriptions=c['c2'], total_diseases=c['c3'],
+#                            total_relations=c['c4'], efficacy_data=[{"name": r['n'], "value": r['c']} for r in eff],
+#                            top_herbs_names=[r['n'] for r in herb], top_herbs_counts=[r['c'] for r in herb], active_page='dashboard')
 
+# @app.route('/dashboard')
+# def dashboard():
+#     # 确保用户已登录
+#     if 'user_id' not in session:
+#         return redirect(url_for('login'))
+#
+#     stats = {}
+#     top_herbs = []
+#     top_diseases = []
+#
+#     with driver.session() as neo4j_session:
+#         try:
+#             # 1. 统计各类节点数量
+#             res_counts = neo4j_session.run("MATCH (n) RETURN labels(n)[0] as label, count(n) as count")
+#             for record in res_counts:
+#                 if record['label']:
+#                     # 将英文标签映射为中文展示
+#                     label_map = {
+#                         "Herb": "中药", "Prescription": "方剂",
+#                         "Disease": "疾病", "Symptom": "症状",
+#                         "Efficacy": "功效", "Category": "分类"
+#                     }
+#                     name = label_map.get(record['label'], record['label'])
+#                     stats[name] = record['count']
+#
+#             # 2. 统计最常用的 Top 10 中药 (通过组成关系)
+#             res_herbs = neo4j_session.run("""
+#                 MATCH (p:Prescription)-[:COMPOSED_OF]->(h:Herb)
+#                 RETURN h.name as name, count(p) as value
+#                 ORDER BY value DESC LIMIT 10
+#             """)
+#             top_herbs = [{"name": r["name"], "value": r["value"]} for r in res_herbs]
+#
+#             # 3. 统计最常见的 Top 10 主治疾病
+#             res_diseases = neo4j_session.run("""
+#                 MATCH (p:Prescription)-[:TREATS]->(d:Disease)
+#                 RETURN d.name as name, count(p) as value
+#                 ORDER BY value DESC LIMIT 10
+#             """)
+#             top_diseases = [{"name": r["name"], "value": r["value"]} for r in res_diseases]
+#
+#         except Exception as e:
+#             print(f"数据大屏查询失败: {e}")
+#
+#     # 将格式化后的数据传给前端
+#     nodes_pie_data = [{"name": k, "value": v} for k, v in stats.items()]
+#
+#     return render_template('dashboard.html',
+#                            active_page='dashboard',
+#                            nodes_pie_data=nodes_pie_data,
+#                            top_herbs=top_herbs,
+#                            top_diseases=top_diseases)
 
 @app.route('/dashboard')
 def dashboard():
@@ -742,6 +753,48 @@ def logout():
     return redirect(url_for('login'))
 
 
+# @app.route('/profile', methods=['GET', 'POST'])
+# def profile():
+#     if request.method == 'POST':
+#         # 修改密码
+#         old = request.form['old_password']
+#         new = request.form['new_password']
+#         confirm = request.form['confirm_password']
+#         if new != confirm:
+#             flash("新密码两次输入不一致", "danger")
+#             return redirect(url_for('profile'))
+#         conn = sqlite3.connect(DB_PATH)
+#         cur = conn.cursor()
+#         cur.execute("SELECT password FROM users WHERE id = ?", (session['user_id'],))
+#         user = cur.fetchone()
+#         if user and user[0] == old:
+#             cur.execute("UPDATE users SET password = ? WHERE id = ?", (new, session['user_id']))
+#             conn.commit()
+#             flash("密码修改成功", "success")
+#         else:
+#             flash("旧密码错误", "danger")
+#         conn.close()
+#         return redirect(url_for('profile'))
+#
+#     # GET：显示用户信息和历史
+#     conn = sqlite3.connect(DB_PATH)
+#     conn.row_factory = sqlite3.Row
+#     cur = conn.cursor()
+#     user = cur.execute("SELECT username, role, id FROM users WHERE id = ?", (session['user_id'],)).fetchone()
+#     # 查询历史（所有模式，含AI回答）
+#     history = cur.execute('''
+#         SELECT query, mode, has_result, timestamp, ai_response
+#         FROM query_history
+#         WHERE id IN (SELECT MAX(id) FROM query_history GROUP BY query, mode)
+#         ORDER BY timestamp DESC LIMIT 30
+#     ''').fetchall()
+#     # 智能问答历史
+#     chats = cur.execute('''
+#         SELECT question, answer, timestamp FROM chat_history
+#         WHERE user_id = ? ORDER BY timestamp DESC LIMIT 20
+#     ''', (session['user_id'],)).fetchall()
+#     conn.close()
+#     return render_template('profile.html', user=user, history=history, chats=chats, active_page='profile')
 @app.route('/profile', methods=['GET', 'POST'])
 def profile():
     # 安全检查：没登录就踢回登录页

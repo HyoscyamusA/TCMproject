@@ -1,0 +1,145 @@
+{% extends "layout.html" %}
+{% block content %}
+<h3>药材搜索</h3>
+
+<form method="POST">
+    <label for="herb_name">请输入药材名称：</label>
+    <input type="text" id="herb_name" name="herb_name" required
+           placeholder="如：当归"
+           value="{{ request.form.get('herb_name', '') }}">
+    <input type="submit" value="搜索">
+    <a href="{{ url_for('herb_search') }}" style="margin-left: 10px;">
+        <input type="button" value="重置">
+    </a>
+    <input type="hidden" name="mode" value="herb">
+</form>
+
+<div class="result">
+    {% if graph_data %}
+        <h2>药材知识图谱：</h2>
+        <div style="margin-bottom:10px;">
+            <button id="toggle-edge-labels" class="btn btn-sm btn-outline-primary">切换关系文字显示</button>
+        </div>
+        <div id="kg-graph" style="width: 100%; height: 600px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); background: #fff;"></div>
+
+        <h3>药材详情：</h3>
+      <style>
+                table {
+                    border-collapse: collapse;
+                    width: 100%;
+                    margin: 20px 0;
+                }
+                th, td {
+                    border: 1px solid #ddd;
+                    padding: 8px;
+                    text-align: left;
+                }
+                th {
+                    background-color: #f2f2f2;
+                    font-weight: bold;
+                }
+                tr:nth-child(even) {
+                    background-color: #f9f9f9;
+                }
+                tr:hover {
+                    background-color: #f5f5f5;
+                }
+                .herb-function {
+                    max-width: 300px;
+                    word-wrap: break-word;
+                }
+            </style>
+        <table >
+        <tr>
+            <th>药材名称</th>
+            <th>性味</th>
+            <th>归经</th>
+            <th>药用部位</th>
+            <th>药材类别</th>
+        </tr>
+        {% for herb in herb_details %}
+        <tr>
+            <td>{{ herb.name }}</td>
+            <td>{{ herb.property }}</td>
+            <td>{{ herb.meridian }}</td>
+            <td>{{ herb.use_part }}</td>
+            <td>{{ herb.category }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+        <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+        <script>
+            const rawData = {{ graph_data|tojson }};
+            const chartDom = document.getElementById('kg-graph');
+            const myChart = echarts.init(chartDom);
+            let showEdgeLabel = true;
+
+            const option = {
+                tooltip: {
+                    formatter: function (params) {
+                        if (params.dataType === 'node') {
+                            const n = params.data || {};
+                            const name = n.name || '';
+                            const type = n.type ? ('类型：' + n.type) : '';
+                            return [name, type].filter(Boolean).join('<br/>');
+                        } else if (params.dataType === 'edge') {
+                            return params.data.name || '';
+                        }
+                    }
+                },
+                legend: [{
+                    data: rawData.categories.map(c => c.name)
+                }],
+                series: [{
+                    type: 'graph',
+                    layout: 'force',
+                    roam: true,
+                    draggable: true,
+                    data: rawData.nodes,
+                    links: rawData.links,
+                    categories: rawData.categories,
+                    label: {
+                        show: true,
+                        position: 'right',
+                        formatter: function (params) {
+                            const n = params.data || {};
+                            return n.name || '';
+                        }
+                    },
+                    edgeSymbol: ['circle', 'arrow'],
+                    edgeSymbolSize: [4, 10],
+                    edgeLabel: {
+                        show: showEdgeLabel,
+                        formatter: function (d) { return d.data.name || ''; },
+                        fontSize: 12
+                    },
+                    lineStyle: {
+                        color: '#aaa'
+                    },
+                    force: {
+                        repulsion: 200,
+                        edgeLength: 120,
+                        gravity: 0.05
+                    }
+                }]
+            };
+            myChart.setOption(option);
+
+            document.getElementById('toggle-edge-labels').addEventListener('click', function () {
+                showEdgeLabel = !showEdgeLabel;
+                myChart.setOption({
+                    series: [{
+                        edgeLabel: { show: showEdgeLabel }
+                    }]
+                });
+            });
+
+            window.addEventListener('resize', () => myChart.resize());
+        </script>
+    {% else %}
+        <p>请输入药材名称进行搜索</p>
+    {% endif %}
+</div>
+
+{% endblock %}

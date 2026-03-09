@@ -1,0 +1,103 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container-fluid py-2">
+    <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; background-color: #ffffff;">
+        <div class="card-body p-4">
+            <h4 class="mb-2 text-success" style="font-weight: bold;">🧠 方剂查询对比</h4>
+            <p class="text-muted small mb-4">查询单方剂详细信息，或输入两个方剂对比（空格分隔，如：'葛根汤 麻黄汤'）。</p>
+
+            <form method="POST" class="row g-3 align-items-center">
+                <div class="col-md-9">
+                    <input type="text" id="symptom" name="symptom" class="form-control form-control-lg bg-light border-0" required
+                           placeholder="在此输入方剂名称..."
+                           value="{{ request.form.get('symptom', '') }}" style="border-radius: 8px;">
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-success btn-lg w-100" style="border-radius: 8px;">🚀 开始推理</button>
+                </div>
+                <input type="hidden" name="mode" value="inference">
+            </form>
+        </div>
+    </div>
+
+    <div class="result">
+        {% if graph_data %}
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-light"><strong>推理图谱</strong></div>
+                        <div class="card-body p-0"><div id="kg-graph" style="width: 100%; height: 750px;"></div></div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card shadow-sm border-info mb-3">
+                        <div class="card-header bg-info text-white">💡 <strong>AI 药师分析</strong></div>
+                        <div class="card-body">
+                            <div id="model-reply">正在分析...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+            <script>
+                const rawData = {{ graph_data|tojson }};
+                const myChart = echarts.init(document.getElementById('kg-graph'));
+                const option = {
+                    title: { text: '推理结果', top: 10, left: 10 },
+                    // 🔥 Tooltip 样式同步修复 🔥
+                    tooltip: {
+                        trigger: 'item',
+                        enterable: true,
+                        confine: true,
+                        extraCssText: 'width: 380px; max-height: 400px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.2); white-space: normal; word-break: break-all;',
+                        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                        formatter: function (params) {
+                            const attr = params.data.attributes || {};
+                            const name = params.name;
+                            const typeStr = params.dataType === 'node' ? '实体' : '关系';
+                            let html = `<div style="border-bottom:1px solid #eee;padding-bottom:8px;margin-bottom:8px;font-size:14px;">
+                                            <strong>${name}</strong> <span style="color:#999;font-size:12px">(${typeStr})</span>
+                                        </div>`;
+                            html += '<table style="font-size:12px;width:100%;">';
+                            for (let key in attr) {
+                                if(key === 'name' || key === 'id') continue;
+                                html += `<tr>
+                                            <td style="color:#666;padding:3px 10px 3px 0;width:70px;vertical-align:top;">${key}:</td>
+                                            <td style="color:#333;line-height:1.4;"><b>${attr[key]}</b></td>
+                                         </tr>`;
+                            }
+                            html += '</table>';
+                            return html;
+                        }
+                    },
+                    legend: { top: 'bottom', data: rawData.categories.map(a => a.name) },
+                    series: [{
+                        type: 'graph',
+                        layout: 'force',
+                        data: rawData.nodes,
+                        links: rawData.links,
+                        categories: rawData.categories,
+                        roam: true,
+                        label: { show: true, position: 'right' },
+                        edgeLabel: { show: true, formatter: function(x){return x.data.name} },
+                        force: { repulsion: 250, edgeLength: 120 }
+                    }]
+                };
+                myChart.setOption(option);
+                window.addEventListener('resize', () => myChart.resize());
+
+                fetch("/suggest", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: new URLSearchParams({ symptom: '{{ search_keyword }}' })
+                }).then(r => r.text()).then(html => document.getElementById("model-reply").innerHTML = html);
+            </script>
+        {% elif request.method == 'POST' %}
+            <div class="alert alert-warning text-center shadow-sm border-0 py-4" style="border-radius: 12px;">
+                <h5 class="mb-2">🔍 未查询到方剂数据</h5>
+                <p class="text-muted mb-0">未找到方剂 "<strong>{{ search_keyword }}</strong>" 的具体信息。</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

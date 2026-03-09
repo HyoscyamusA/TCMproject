@@ -1,0 +1,159 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="mb-4">
+        <h2 style="color: #2c3e50; font-weight: bold;">📜 查询历史记录</h2>
+        <p class="text-muted">查看您过去的检索记录，点击对应词条即可一键重新查询。</p>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100" style="border-radius: 12px;">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center pt-4 pb-2">
+                    <h5 class="text-primary mb-0 fw-bold">💬 辨证问答记录</h5>
+                    <button class="btn btn-sm btn-outline-danger clear-btn" data-mode="answer" style="border-radius: 6px;">清空记录</button>
+                </div>
+                <div class="card-body overflow-auto" style="max-height: 60vh;">
+                    <ul class="list-group list-group-flush">
+                        {% for item in answer_history %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center border-0 mb-2 p-3 shadow-sm history-li"
+                            style="background-color: #f8f9fa; border-radius: 8px; cursor: pointer;"
+                            onclick="jumpToResult('{{ item.query }}', 'answer')">
+                            <span class="text-dark fw-bold">{{ item.query }}</span>
+                            <span class="badge {% if item.has_result %}bg-success{% else %}bg-secondary{% endif %} rounded-pill ms-2">
+                                {% if item.has_result %}有结果{% else %}无结果{% endif %}
+                            </span>
+                        </li>
+                        {% else %}
+                        <li class="list-group-item text-muted border-0 text-center bg-transparent mt-3">暂无查询历史</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100" style="border-radius: 12px;">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center pt-4 pb-2">
+                    <h5 class="text-success mb-0 fw-bold">🧠 方剂推理记录</h5>
+                    <button class="btn btn-sm btn-outline-danger clear-btn" data-mode="inference" style="border-radius: 6px;">清空记录</button>
+                </div>
+                <div class="card-body overflow-auto" style="max-height: 60vh;">
+                    <ul class="list-group list-group-flush">
+                        {% for item in inference_history %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center border-0 mb-2 p-3 shadow-sm history-li"
+                            style="background-color: #f8f9fa; border-radius: 8px; cursor: pointer;"
+                            onclick="jumpToResult('{{ item.query }}', 'inference')">
+                            <span class="text-dark fw-bold">{{ item.query }}</span>
+                            <span class="badge {% if item.has_result %}bg-success{% else %}bg-secondary{% endif %} rounded-pill ms-2">
+                                {% if item.has_result %}有结果{% else %}无结果{% endif %}
+                            </span>
+                        </li>
+                        {% else %}
+                        <li class="list-group-item text-muted border-0 text-center bg-transparent mt-3">暂无查询历史</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100" style="border-radius: 12px;">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center pt-4 pb-2">
+                    <h5 class="text-info mb-0 fw-bold">🌿 药材寻方记录</h5>
+                    <button class="btn btn-sm btn-outline-danger clear-btn" data-mode="herb" style="border-radius: 6px;">清空记录</button>
+                </div>
+                <div class="card-body overflow-auto" style="max-height: 60vh;">
+                    <ul class="list-group list-group-flush">
+                        {% for item in herb_history %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center border-0 mb-2 p-3 shadow-sm history-li"
+                            style="background-color: #f8f9fa; border-radius: 8px; cursor: pointer;"
+                            onclick="jumpToResult('{{ item.query }}', 'herb')">
+                            <span class="text-dark fw-bold">{{ item.query }}</span>
+                            <span class="badge {% if item.has_result %}bg-success{% else %}bg-secondary{% endif %} rounded-pill ms-2">
+                                {% if item.has_result %}有结果{% else %}无结果{% endif %}
+                            </span>
+                        </li>
+                        {% else %}
+                        <li class="list-group-item text-muted border-0 text-center bg-transparent mt-3">暂无查询历史</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* 鼠标悬停变色效果，提示用户整行可点击 */
+    .history-li { transition: all 0.2s ease; }
+    .history-li:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
+        background-color: #e9ecef !important;
+    }
+    .history-li:hover span.text-dark { color: #0d6efd !important; text-decoration: underline; }
+</style>
+
+<script>
+// 万无一失的强制跳转脚本
+function jumpToResult(query, mode) {
+    // 动态创建一个看不见的表单
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.style.display = 'none';
+
+    // 搜索词 input
+    const inputQuery = document.createElement('input');
+    inputQuery.type = 'hidden';
+    inputQuery.value = query;
+
+    // 模式 input
+    const inputMode = document.createElement('input');
+    inputMode.type = 'hidden';
+    inputMode.name = 'mode';
+    inputMode.value = mode;
+
+    // 根据模式分配请求地址和参数名
+    if (mode === 'herb') {
+        form.action = "{{ url_for('herb_search') }}";
+        inputQuery.name = 'herb_name';
+    } else if (mode === 'answer') {
+        form.action = "{{ url_for('answer') }}";
+        inputQuery.name = 'symptom';
+    } else if (mode === 'inference') {
+        form.action = "{{ url_for('inference') }}";
+        inputQuery.name = 'symptom';
+    }
+
+    form.appendChild(inputQuery);
+    form.appendChild(inputMode);
+    document.body.appendChild(form);
+
+    // 强制提交！
+    form.submit();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // 清空记录脚本保持不变
+    document.querySelectorAll('.clear-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation(); // 防止点击清空按钮时触发整行的跳转
+            const mode = this.getAttribute('data-mode');
+            if (confirm('⚠️ 确定要清空此模块的所有检索历史吗？')) {
+                fetch('/clear_history', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'mode=' + mode
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) { location.reload(); }
+                    else { alert('清空失败: ' + (data.error || '未知错误')); }
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
