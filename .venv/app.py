@@ -30,14 +30,7 @@ COLOR_MAP = {
 
 driver = GraphDatabase.driver(NEO4J_URI, auth=NEO4J_AUTH)
 
-# # 🌟 全局登录校验拦截器
-# @app.before_request
-# def check_login():
-#     # 定义不需要登录就能访问的白名单（登录页、注册页和静态资源）
-#     white_list = ['login', 'register', 'static']
-#     if 'user_id' not in session and request.endpoint not in white_list:
-#         return redirect(url_for('login'))
-#
+
 # 🌟 全局登录校验拦截器
 @app.before_request
 def check_login():
@@ -46,31 +39,6 @@ def check_login():
     if 'user_id' not in session and request.endpoint not in white_list:
         return redirect(url_for('login'))
 
-
-# def init_db():
-#     conn = sqlite3.connect(DB_PATH)
-#     c = conn.cursor()
-#     c.execute('''
-#         CREATE TABLE IF NOT EXISTS query_history (
-#             id INTEGER PRIMARY KEY AUTOINCREMENT,
-#             query TEXT NOT NULL,
-#             mode TEXT NOT NULL,
-#             has_result BOOLEAN NOT NULL,
-#             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-#         )
-#     ''')
-#     # 确保用户表也存在
-#     c.execute('''
-#         CREATE TABLE IF NOT EXISTS users (
-#             id INTEGER PRIMARY KEY AUTOINCREMENT,
-#             username TEXT UNIQUE NOT NULL,
-#             password TEXT NOT NULL
-#         )
-#     ''')
-#     conn.commit()
-#     conn.close()
-#
-# init_db() # 启动时尝试初始化
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -246,50 +214,6 @@ def graph_overview():
                            graph_data=json.dumps(graph_data), current_limit=limit)
 
 
-#
-# @app.route('/')
-# @app.route('/home')
-# def home():
-#     with driver.session() as neo4j_session:
-#         # 原有统计
-#         total_herbs = neo4j_session.run("MATCH (n:Herb) RETURN count(n) AS c").single()['c']
-#         total_prescriptions = neo4j_session.run("MATCH (n:Prescription) RETURN count(n) AS c").single()['c']
-#         total_diseases = neo4j_session.run("MATCH (n:Disease) RETURN count(n) AS c").single()['c']
-#         total_relations = neo4j_session.run("MATCH ()-[r]->() RETURN count(r) AS c").single()['c']
-#
-#         # 新增：典籍总数
-#         total_sources = neo4j_session.run("MATCH (s:Literature) RETURN count(s) AS c").single()['c']
-#
-#         # 典籍方剂排名
-#         source_ranking = neo4j_session.run("""
-#             MATCH (p:Prescription)-[:HAS_SOURCE]->(s:Literature)
-#             RETURN s.name AS name, count(p) AS value
-#             ORDER BY value DESC LIMIT 10
-#         """).data()
-#         source_ranking = [{'name': r['name'], 'value': r['value']} for r in source_ranking]
-#
-#         # 方剂类型排名（需存在 Category 节点和 HAS_CATEGORY 关系）
-#         category_ranking = neo4j_session.run("""
-#             MATCH (p:Prescription)-[:HAS_CATEGORY]->(c:Category)
-#             RETURN c.name AS name, count(p) AS value
-#             ORDER BY value DESC LIMIT 10
-#         """).data()
-#         category_ranking = [{'name': r['name'], 'value': r['value']} for r in category_ranking]
-#
-#     # 用户数（仅管理员可见）
-#     user_count = None
-#     if session.get('role') == 'admin':
-#         conn = sqlite3.connect(DB_PATH)
-#         user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-#         conn.close()
-#
-#     return render_template('home.html', active_page='home',
-#                            total_herbs=total_herbs, total_prescriptions=total_prescriptions,
-#                            total_diseases=total_diseases, total_relations=total_relations,
-#                            total_sources=total_sources,
-#                            source_ranking=source_ranking,
-#                            category_ranking=category_ranking,
-#                            user_count=user_count)
 
 # ================= 新增：公开科普首页 =================
 @app.route('/')
@@ -451,37 +375,93 @@ def inference():
 def suggest():
     symptom = request.form.get('symptom')
     return markdown.markdown(call_ollama(f"中医分析方剂：{symptom}。"))
+# @app.route('/herb_search', methods=['GET', 'POST'])
+# def herb_search():
+#     graph_data, related_prescriptions, search_term = None, [], ""
+#     if request.method == 'POST':
+#         search_term = request.form.get('herb_name', '').strip()
+#         if search_term:
+#             query = "MATCH (p:Prescription)-[r]->(h:Herb {name: $name}) RETURN p.name AS p_name, r.dosage AS dosage, r.processing AS processing LIMIT 50"
+#             try:
+#                 with driver.session() as neo4j_session:
+#                     result = neo4j_session.run(query, name=search_term).data()
+#                 if result:
+#                     nodes, links, node_names = [], [], set()
+#                     nodes.append({"name": search_term, "category": 0, "symbolSize": 50, "itemStyle": {"color": "#e74c3c"}, "label": {"show": True}})
+#                     node_names.add(search_term)
+#                     for record in result:
+#                         p_name = record.get('p_name', '未知')
+#                         if p_name not in node_names:
+#                             nodes.append({"name": p_name, "category": 1, "symbolSize": 30, "itemStyle": {"color": "#3498db"}, "label": {"show": True}})
+#                             node_names.add(p_name)
+#                         links.append({"source": p_name, "target": search_term, "dosage": record.get('dosage', '')})
+#                         related_prescriptions.append({"name": p_name, "dosage": record.get('dosage', ''), "processing": record.get('processing', '')})
+#                     graph_data = {"nodes": nodes, "links": links, "categories": [{"name": "查询药材"}, {"name": "关联方剂"}]}
+#                     # 🌟 成功记录历史
+#                     save_history(search_term, 'herb', True)
+#                 else:
+#                     # 🌟 查询不到结果也记录一次历史
+#                     save_history(search_term, 'herb', False)
+#             except Exception as e: print(f"Neo4j错误: {e}")
+#     return render_template('herb_search.html', active_page='herb_search', graph_data=graph_data, related_prescriptions=related_prescriptions, search_term=search_term)
+
 @app.route('/herb_search', methods=['GET', 'POST'])
 def herb_search():
     graph_data, related_prescriptions, search_term = None, [], ""
     if request.method == 'POST':
         search_term = request.form.get('herb_name', '').strip()
         if search_term:
-            query = "MATCH (p:Prescription)-[r]->(h:Herb {name: $name}) RETURN p.name AS p_name, r.dosage AS dosage, r.processing AS processing LIMIT 50"
+            # 🌟 修改点 1：返回完整的节点 p 和 h，而不仅是名字
+            query = "MATCH (p:Prescription)-[r]->(h:Herb {name: $name}) RETURN p, r.dosage AS dosage, r.processing AS processing, h LIMIT 50"
             try:
                 with driver.session() as neo4j_session:
                     result = neo4j_session.run(query, name=search_term).data()
                 if result:
                     nodes, links, node_names = [], [], set()
-                    nodes.append({"name": search_term, "category": 0, "symbolSize": 50, "itemStyle": {"color": "#e74c3c"}, "label": {"show": True}})
+
+                    # 🌟 修改点 2：提取目标中药节点 h 的属性并注入 attributes
+                    h_node = result[0]['h'] if result and 'h' in result[0] else {}
+                    nodes.append({
+                        "name": search_term,
+                        "category": 0,
+                        "symbolSize": 50,
+                        "itemStyle": {"color": "#e74c3c"},
+                        "label": {"show": True},
+                        "attributes": dict(h_node)  # 注入所有属性
+                    })
                     node_names.add(search_term)
+
                     for record in result:
-                        p_name = record.get('p_name', '未知')
+                        p_node = record.get('p', {})
+                        p_name = p_node.get('name', '未知')
+
                         if p_name not in node_names:
-                            nodes.append({"name": p_name, "category": 1, "symbolSize": 30, "itemStyle": {"color": "#3498db"}, "label": {"show": True}})
+                            nodes.append({
+                                "name": p_name,
+                                "category": 1,
+                                "symbolSize": 30,
+                                "itemStyle": {"color": "#3498db"},
+                                "label": {"show": True},
+                                "attributes": dict(p_node)  # 🌟 注入所有属性
+                            })
                             node_names.add(p_name)
-                        links.append({"source": p_name, "target": search_term, "dosage": record.get('dosage', '')})
-                        related_prescriptions.append({"name": p_name, "dosage": record.get('dosage', ''), "processing": record.get('processing', '')})
-                    graph_data = {"nodes": nodes, "links": links, "categories": [{"name": "查询药材"}, {"name": "关联方剂"}]}
-                    # 🌟 成功记录历史
+
+                        links.append({"source": p_name, "target": search_term, "dosage": record.get('dosage', ''),
+                                      "processing": record.get('processing', '')})
+                        related_prescriptions.append({"name": p_name, "dosage": record.get('dosage', ''),
+                                                      "processing": record.get('processing', '')})
+
+                    graph_data = {"nodes": nodes, "links": links,
+                                  "categories": [{"name": "查询药材"}, {"name": "关联方剂"}]}
+                    # 成功记录历史
                     save_history(search_term, 'herb', True)
                 else:
-                    # 🌟 查询不到结果也记录一次历史
+                    # 查询不到结果也记录一次历史
                     save_history(search_term, 'herb', False)
-            except Exception as e: print(f"Neo4j错误: {e}")
-    return render_template('herb_search.html', active_page='herb_search', graph_data=graph_data, related_prescriptions=related_prescriptions, search_term=search_term)
-
-
+            except Exception as e:
+                print(f"Neo4j错误: {e}")
+    return render_template('herb_search.html', active_page='herb_search', graph_data=graph_data,
+                           related_prescriptions=related_prescriptions, search_term=search_term)
 
 @app.route('/dashboard')
 def dashboard():

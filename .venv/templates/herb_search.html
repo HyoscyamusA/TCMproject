@@ -1,6 +1,31 @@
 {% extends "layout.html" %}
 
 {% block content %}
+<div id="node-detail-panel" class="shadow-lg">
+    <span class="panel-close-btn" onclick="closePanel()">&times;</span>
+    <h4 id="panel-title" class="mb-3" style="padding-right: 20px; border-bottom: 2px solid #ccc; padding-bottom: 10px;">节点详情</h4>
+    <div id="panel-content">
+        <p class="text-muted">点击图谱中的节点查看详细信息...</p>
+    </div>
+</div>
+
+<style>
+    #node-detail-panel {
+        position: fixed; top: 0; right: -450px; width: 400px; height: 100vh;
+        background-color: #ffffff; z-index: 1050; transition: right 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        overflow-y: auto; padding: 25px; box-shadow: -5px 0 25px rgba(0,0,0,0.15);
+    }
+    #node-detail-panel.open { right: 0; }
+    .panel-close-btn {
+        position: absolute; top: 15px; right: 20px; cursor: pointer;
+        font-size: 2rem; color: #6c757d; line-height: 1;
+    }
+    .panel-close-btn:hover { color: #dc3545; }
+    .detail-item { margin-bottom: 15px; border-bottom: 1px dashed #eee; padding-bottom: 10px; }
+    .detail-label { font-weight: bold; color: #6c757d; display: block; font-size: 0.9rem; margin-bottom: 4px; }
+    .detail-value { color: #212529; font-size: 1.05rem; word-wrap: break-word; }
+</style>
+
 <div class="container-fluid py-2">
     <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; background-color: #ffffff;">
         <div class="card-body p-4">
@@ -79,39 +104,89 @@
 
 {% if graph_data %}
 <script type="text/javascript">
+    // ================= 新增：侧边面板交互逻辑 =================
+    window.closePanel = function() {
+        document.getElementById('node-detail-panel').classList.remove('open');
+    };
+
+    function openPanel(params) {
+        const panel = document.getElementById('node-detail-panel');
+        const title = document.getElementById('panel-title');
+        const content = document.getElementById('panel-content');
+
+        panel.classList.add('open');
+        title.innerText = params.name || '未知节点';
+        title.style.borderColor = params.color || '#0d6efd';
+        title.style.color = params.color || '#333';
+
+        let html = '';
+        const excludeKeys = ['name', 'id', 'category', 'symbolSize', 'x', 'y', 'fixed', 'itemStyle', 'label', 'value', 'attributes', 'properties'];
+        const keyMap = { 'desc': '描述', 'description': '描述', 'flavor': '性味', 'meridian': '归经', 'efficacy': '功效', 'indication': '主治', 'dosage': '用法用量', 'source': '出处', 'pinyin': '拼音' };
+
+        // 兼容不同后端的属性包裹方式
+        const dataObj = params.data.attributes || params.data.properties || params.data;
+
+        for (let key in dataObj) {
+            if (!excludeKeys.includes(key) && dataObj[key]) {
+                let label = keyMap[key] || key;
+                html += `<div class="detail-item"><span class="detail-label">${label}</span><span class="detail-value">${dataObj[key]}</span></div>`;
+            }
+        }
+
+        if (html === '') html = '<p class="text-muted mt-3">该节点暂无更多详细信息。<br>如果在 app.py 没查询节点属性，请修改对应路由的 RETURN 语句补充 node_props。</p>';
+        content.innerHTML = html;
+    }
+
     document.addEventListener("DOMContentLoaded", function() {
         var chartDom = document.getElementById('kg-graph');
         var myChart = echarts.init(chartDom);
         var option;
         var showEdgeLabel = true;
 
-        // 获取后端传来的数据
         var graphData = {{ graph_data | tojson }};
 
         option = {
-            title: {
-                text: '包含 "{{ search_term }}" 的方剂',
-                left: 'center',
-                top: 10
-            },
+            title: { text: '包含 "{{ search_term }}" 的方剂', left: 'center', top: 10 },
             tooltip: {
                 trigger: 'item',
+                enterable: true,
+                confine: true,
+                extraCssText: 'width: 380px; max-height: 400px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.2); white-space: normal; word-break: break-all;',
+                backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                textStyle: { color: '#333' },
                 formatter: function (params) {
+                    // 如果是连线（关系）的 tooltip
                     if (params.dataType === 'edge') {
-                        // 鼠标悬停在线上：显示详细的剂量和炮制
                         var d = params.data.dosage ? `<b>剂量:</b> ${params.data.dosage}` : '';
                         var p = params.data.processing ? `<b>炮制:</b> ${params.data.processing}` : '';
-                        return `${params.data.source} → ${params.data.target}<br/>${d}<br/>${p}`;
+                        return `<div style="padding: 5px;">${params.data.source} → ${params.data.target}<br/>${d}<br/>${p}</div>`;
                     } else {
-                        // 鼠标悬停在节点上
-                        return params.name;
+                        // 如果是节点，渲染与 answer.html 相同的属性表格
+                        const attr = params.data.attributes || {};
+                        const name = params.name;
+                        let html = `<div style="border-bottom:1px solid #eee;padding-bottom:8px;margin-bottom:8px;font-size:14px;">
+                                        <strong>${name}</strong> <span style="color:#999;font-size:12px">(节点详情)</span>
+                                    </div>`;
+                        html += '<table style="font-size:12px;width:100%;border-collapse:collapse;">';
+                        let hasProps = false;
+                        for (let key in attr) {
+                            if(key === 'name' || key === 'id') continue;
+                            hasProps = true;
+                            html += `<tr>
+                                        <td style="color:#666;padding:3px 10px 3px 0;width:70px;vertical-align:top;">${key}:</td>
+                                        <td style="color:#333;line-height:1.4;"><b>${attr[key]}</b></td>
+                                     </tr>`;
+                        }
+                        html += '</table>';
+
+                        // 如果只有 name 没有其他属性，兜底显示基本信息
+                        if (!hasProps) return `<div style="padding: 5px;"><strong>${name}</strong><br><span style="color:#999;font-size:12px">暂无更多属性</span></div>`;
+
+                        return html;
                     }
                 }
             },
-            legend: {
-                data: graphData.categories.map(function (a) { return a.name; }),
-                bottom: 10
-            },
+            legend: { data: graphData.categories.map(function (a) { return a.name; }), bottom: 10 },
             series: [{
                 type: 'graph',
                 layout: 'force',
@@ -120,50 +195,31 @@
                 categories: graphData.categories,
                 roam: true,
                 draggable: true,
-                label: {
-                    show: true,
-                    position: 'right',
-                    formatter: '{b}'
-                },
+                label: { show: true, position: 'right', formatter: '{b}' },
                 edgeSymbol: ['circle', 'arrow'],
                 edgeSymbolSize: [4, 8],
                 edgeLabel: {
-                    show: true,
-                    fontSize: 11,
-                    formatter: function (x) {
-                        // 默认线上文字：优先显示剂量
-                        return x.data.dosage || '';
-                    },
+                    show: true, fontSize: 11,
+                    formatter: function (x) { return x.data.dosage || ''; },
                     color: '#e74c3c'
                 },
-                lineStyle: {
-                    color: '#bdc3c7',
-                    curveness: 0.1,
-                    width: 2
-                },
-                force: {
-                    repulsion: 350,
-                    edgeLength: 150,
-                    gravity: 0.05
-                }
+                lineStyle: { color: '#bdc3c7', curveness: 0.1, width: 2 },
+                force: { repulsion: 350, edgeLength: 150, gravity: 0.05 }
             }]
         };
 
         myChart.setOption(option);
 
-        // 窗口大小调整自适应
-        window.addEventListener('resize', function() {
-            myChart.resize();
+        // 点击节点事件
+        myChart.on('click', function (params) {
+            if (params.dataType === 'node') openPanel(params);
         });
 
-        // 按钮交互：切换连线文字
+        window.addEventListener('resize', function() { myChart.resize(); });
+
         document.getElementById('toggle-edge').addEventListener('click', function() {
             showEdgeLabel = !showEdgeLabel;
-            myChart.setOption({
-                series: [{
-                    edgeLabel: { show: showEdgeLabel }
-                }]
-            });
+            myChart.setOption({ series: [{ edgeLabel: { show: showEdgeLabel } }] });
         });
     });
 </script>
