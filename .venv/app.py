@@ -25,6 +25,7 @@ COLOR_MAP = {
     "Category": "#FFC0CB",
     "Efficacy": "#16C2D5",
     "Origin": "#B37FEB",
+    "Department": "#FFD700",  # 新增：科室设为金色
     "方剂": "#87EBC1", "中药": "#69B2FF", "来源": "#9A66E4"
 }
 
@@ -375,35 +376,6 @@ def inference():
 def suggest():
     symptom = request.form.get('symptom')
     return markdown.markdown(call_ollama(f"中医分析方剂：{symptom}。"))
-# @app.route('/herb_search', methods=['GET', 'POST'])
-# def herb_search():
-#     graph_data, related_prescriptions, search_term = None, [], ""
-#     if request.method == 'POST':
-#         search_term = request.form.get('herb_name', '').strip()
-#         if search_term:
-#             query = "MATCH (p:Prescription)-[r]->(h:Herb {name: $name}) RETURN p.name AS p_name, r.dosage AS dosage, r.processing AS processing LIMIT 50"
-#             try:
-#                 with driver.session() as neo4j_session:
-#                     result = neo4j_session.run(query, name=search_term).data()
-#                 if result:
-#                     nodes, links, node_names = [], [], set()
-#                     nodes.append({"name": search_term, "category": 0, "symbolSize": 50, "itemStyle": {"color": "#e74c3c"}, "label": {"show": True}})
-#                     node_names.add(search_term)
-#                     for record in result:
-#                         p_name = record.get('p_name', '未知')
-#                         if p_name not in node_names:
-#                             nodes.append({"name": p_name, "category": 1, "symbolSize": 30, "itemStyle": {"color": "#3498db"}, "label": {"show": True}})
-#                             node_names.add(p_name)
-#                         links.append({"source": p_name, "target": search_term, "dosage": record.get('dosage', '')})
-#                         related_prescriptions.append({"name": p_name, "dosage": record.get('dosage', ''), "processing": record.get('processing', '')})
-#                     graph_data = {"nodes": nodes, "links": links, "categories": [{"name": "查询药材"}, {"name": "关联方剂"}]}
-#                     # 🌟 成功记录历史
-#                     save_history(search_term, 'herb', True)
-#                 else:
-#                     # 🌟 查询不到结果也记录一次历史
-#                     save_history(search_term, 'herb', False)
-#             except Exception as e: print(f"Neo4j错误: {e}")
-#     return render_template('herb_search.html', active_page='herb_search', graph_data=graph_data, related_prescriptions=related_prescriptions, search_term=search_term)
 
 @app.route('/herb_search', methods=['GET', 'POST'])
 def herb_search():
@@ -659,6 +631,83 @@ def ai_chat():
 
     return render_template('ai_chat.html', chat_history=history, current_page='ai_chat',active_page='ai_chat')
 
+#添加科室模块
+@app.route('/department_search', methods=['GET', 'POST'])
+def department_search():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    # 1. 从 Neo4j 获取真实的 Department 节点
+    all_departments = []
+    try:
+        with driver.session() as neo4j_session:
+            # 使用正确的 Department 标签
+            dept_list_query = "MATCH (d:Department) RETURN DISTINCT d.name AS name ORDER BY d.name"
+            dept_result = neo4j_session.run(dept_list_query)
+            all_departments = [r['name'] for r in dept_result if r['name']]
+    except Exception as e:
+        print(f"获取科室列表失败: {e}")
+
+    graph_data, related_nodes, search_term = None, [], ""
+
+    # 2. 处理查询请求
+    if request.method == 'POST':
+        search_term = request.form.get('department_name', '').strip()
+        if search_term:
+            # 查询指定的 Department 及其所有关联的节点（比如 Disease 等）
+            query = """
+            MATCH (dept:Department {name: $name})-[r]-(n)
+            RETURN dept, r, n LIMIT 150
+            """
+            try:
+                with driver.session() as neo4j_session:
+                    # 保留之前解决报错的精髓：不加 .data()，直接获取原生节点
+                    result = neo4j_session.run(query, name=search_term)
+
+                    nodes_dict, links = {}, []
+                    for record in result:
+                        dept_node = record['dept']
+                        n_node = record['n']
+                        r_rel = record['r']
+
+                        # 格式化节点
+                        dept_fmt = format_node(dept_node, "Department")
+                        n_fmt = format_node(n_node)
+
+                        nodes_dict[dept_fmt['id']] = dept_fmt
+                        nodes_dict[n_fmt['id']] = n_fmt
+
+                        links.append({
+                            "source": dept_fmt['id'],
+                            "target": n_fmt['id'],
+                            "name": type(r_rel).__name__
+                        })
+
+                        related_nodes.append({
+                            "name": n_fmt['name'],
+                            "category": n_fmt['category'],
+                            "relation": type(r_rel).__name__
+                        })
+
+                    categories = [{"name": c} for c in set(n['category'] for n in nodes_dict.values())]
+
+                    if nodes_dict:
+                        graph_data = {
+                            "nodes": list(nodes_dict.values()),
+                            "links": links,
+                            "categories": categories
+                        }
+            except Exception as e:
+                print(f"科室查询错误: {e}")
+
+    return render_template('department_search.html',
+                           active_page='department_search',
+                           all_departments=all_departments,
+                           graph_data=graph_data,
+                           related_nodes=related_nodes,
+                           search_term=search_term)
+
+
 
 @app.route('/history')
 def history_page():
@@ -754,6 +803,11 @@ def profile():
 
     # GET请求：直接渲染页面，并传 active_page='profile' 激活侧边栏高亮
     return render_template('profile.html', active_page='profile')
+
+
+
+
+
 
 
 if __name__ == '__main__':
