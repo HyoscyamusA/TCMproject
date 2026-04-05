@@ -100,14 +100,16 @@
 <body>
    {% set current_page = active_page if active_page is defined else '' %}
     <div class="sidebar" id="sidebar">
-        <h4>🌿 中医知识图谱</h4>
+        <h4><span id="sidebar-title">🌿 中医知识图谱</span></h4>
         <a href="{{ url_for('home') }}" class="{% if current_page == 'home' %}active{% endif %}">🏠 系统首页</a>
         <a href="{{ url_for('answer') }}" class="{% if current_page == 'answer' %}active{% endif %}">💬 症状辨证问答</a>
         <a href="{{ url_for('inference') }}" class="{% if current_page == 'inference' %}active{% endif %}">🧠 方剂查询对比</a>
         <a href="{{ url_for('herb_search') }}" class="{% if current_page == 'herb' or current_page == 'herb_search' %}active{% endif %}">🌿 药材反向寻方</a>
+
+        <a href="{{ url_for('department_search') }}" class="{% if current_page == 'department_search' %}active{% endif %}">🏥 科室关联查询</a>
         <a href="{{ url_for('wordcloud') }}" class="{% if current_page == 'wordcloud' %}active{% endif %}">☁️ 功效词云分析</a>
         <a href="{{ url_for('ai_chat') }}" class="{% if current_page == 'ai_chat' %}active{% endif %}">🤖 AI 智能问答</a>
-        <a href="{{ url_for('graph_overview')}}" class="{% if current_page == 'graph_overview' %}active{% endif %}">🌌 图谱全景总览</a>
+        <a href="{{ url_for('graph_overview')}}" class="{% if current_page == 'graph_overview' or current_page == 'overview' %}active{% endif %}">🌌 图谱全景总览</a>
         <a href="{{ url_for('dashboard') }}" class="{% if current_page == 'dashboard' %}active{% endif %}">📊 数据统计看板</a>
         <a href="{{ url_for('history_page') }}" class="{% if current_page == 'history' %}active{% endif %}">📜 检索历史记录</a>
         <a href="{{ url_for('profile') }}" class="{% if current_page == 'profile' %}active{% endif %}">👤 个人空间</a>
